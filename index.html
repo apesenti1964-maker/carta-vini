@@ -56,12 +56,16 @@
 
   <div id="view-filtri">
     <div class="filters-section">
+
       <select id="filter-colore" onchange="applyFilters()"><option value="">Tutti i Colori</option></select>
       <select id="filter-vitigno" onchange="applyFilters()"><option value="">Tutti i Vitigni</option></select>
       <select id="filter-produttore" onchange="applyFilters()"><option value="">Tutti i Produttori</option></select>
       <select id="filter-regione" onchange="applyFilters()"><option value="">Tutte le Regioni</option></select>
       <button class="btn-clear" onclick="resetFilters()">Pulisci Filtri</button>
     </div>
+    <!-- Contatore vini -->
+    <div id="counter-vini" style="font-weight: bold; margin-bottom: 15px; color: var(--accent); font-size: 15px;">Vini trovati: 0</div>
+    
     <div class="grid-vini" id="grid-container">
       <div class="loading">Caricamento carta vini in corso...</div>
     </div>
@@ -164,6 +168,10 @@
         }));
 
         populateDropdowns();
+
+        // ⬇️ Chiamata unica che renderizza griglia, tabella e aggiorna il contatore iniziale
+        applyFilters();
+        
         renderGrid(listaVini);
         renderTable(listaVini);
       } catch (error) {
@@ -247,10 +255,15 @@
         (!reg || v.regione === reg)
       );
 
+      // ⬇️ RIGHE AGGIUNTE PER IL CONTATORE ⬇️
+      const counterEl = document.getElementById('counter-vini');
+      if (counterEl) {
+        counterEl.innerText = `Vini trovati: ${filtered.length} di ${listaVini.length}`;
+      }
+
       renderGrid(filtered);
       renderTable(filtered);
     }
-
     function resetFilters() {
       document.getElementById('filter-colore').value = "";
       document.getElementById('filter-vitigno').value = "";
