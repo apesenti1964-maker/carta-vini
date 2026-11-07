@@ -9,25 +9,21 @@
     body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
     header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--accent); padding-bottom: 15px; margin-bottom: 20px; }
     h1 { color: var(--accent); margin: 0; font-size: 24px; }
-    .nav-tabs { display: flex; gap: 10px; }
+    .nav-tabs { display: flex; gap: 10px; align-items: center; }
     .tab-btn { background: #eee; border: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; }
     .tab-btn.active { background: var(--accent); color: white; }
     
-    /* PULSANTE ADMIN */
     .btn-admin { background: #2B2B2B; color: white; border: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; }
     .btn-admin:hover { background: #444; }
 
-    /* VISTA LISTA SINTETICA */
     .table-container { overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
     table { width: 100%; border-collapse: collapse; text-align: left; }
     th, td { padding: 12px 16px; border-bottom: 1px solid #eee; font-size: 14px; }
     th { background-color: #f8f8f8; color: var(--accent); font-weight: 600; }
 
-    /* VISTA FILTRI & SCHEDE */
     .filters-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; background: white; padding: 15px; border-radius: 8px; align-items: center; }
     select, input[type="text"], input[type="number"], input[type="password"] { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; background: white; font-size: 14px; box-sizing: border-box; }
-    .btn-clear { background: #666; color: white; border: none; padding: 9px 14px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-    .btn-clear:hover { background: #444; }
+    .btn-clear { background: #666; color: white; border: none; padding: 9px 14px; border-radius: 4px; font-weight: bold; cursor: pointer; }
 
     .grid-vini { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
     .card-vino { background: white; border-radius: 8px; border: 1px solid #e5e5e5; padding: 18px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
@@ -37,7 +33,6 @@
     .badge-giacenza { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
     .badge-esaurito { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
 
-    /* MODALE DETTAGLIO SCHEDA & ADMIN */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 1000; }
     .modal-content { background: white; width: 90%; max-width: 650px; border-radius: 12px; padding: 25px; max-height: 85vh; overflow-y: auto; position: relative; }
     .close-btn { position: absolute; top: 15px; right: 20px; font-size: 24px; cursor: pointer; color: #888; }
@@ -59,30 +54,19 @@
     </div>
   </header>
 
-  <!-- VISTA 1: FILTRI & SCHEDE -->
   <div id="view-filtri">
     <div class="filters-section">
-      <select id="filter-colore" onchange="applyFilters()">
-        <option value="">Tutti i Colori</option>
-      </select>
-      <select id="filter-vitigno" onchange="applyFilters()">
-        <option value="">Tutti i Vitigni</option>
-      </select>
-      <select id="filter-produttore" onchange="applyFilters()">
-        <option value="">Tutti i Produttori</option>
-      </select>
-      <select id="filter-regione" onchange="applyFilters()">
-        <option value="">Tutte le Regioni</option>
-      </select>
+      <select id="filter-colore" onchange="applyFilters()"><option value="">Tutti i Colori</option></select>
+      <select id="filter-vitigno" onchange="applyFilters()"><option value="">Tutti i Vitigni</option></select>
+      <select id="filter-produttore" onchange="applyFilters()"><option value="">Tutti i Produttori</option></select>
+      <select id="filter-regione" onchange="applyFilters()"><option value="">Tutte le Regioni</option></select>
       <button class="btn-clear" onclick="resetFilters()">Pulisci Filtri</button>
     </div>
-
     <div class="grid-vini" id="grid-container">
       <div class="loading">Caricamento carta vini in corso...</div>
     </div>
   </div>
 
-  <!-- VISTA 2: LISTA SINTETICA -->
   <div id="view-lista" style="display: none;">
     <div class="table-container">
       <table>
@@ -97,51 +81,39 @@
             <th>Grad.</th>
             <th>Prezzo</th>
             <th>Giacenza</th>
-            <th>Note Particolari</th>
+            <th>Note</th>
           </tr>
         </thead>
-        <tbody id="table-body">
-          <!-- Righe caricate dinamicamente -->
-        </tbody>
+        <tbody id="table-body"></tbody>
       </table>
     </div>
   </div>
 
-  <!-- MODALE DETTAGLIO VINO -->
   <div class="modal" id="modal-dettaglio">
     <div class="modal-content" id="modal-body">
       <span class="close-btn" onclick="closeModal('modal-dettaglio')">&times;</span>
-      <!-- Contenuto dinamico -->
     </div>
   </div>
 
-  <!-- MODALE ADMIN / REGISTRAZIONE MOVIMENTI -->
   <div class="modal" id="modal-admin">
     <div class="modal-content">
       <span class="close-btn" onclick="closeModal('modal-admin')">&times;</span>
-      
-      <!-- FASE 1: INSERIMENTO PASSWORD -->
       <div id="admin-auth">
         <h2 style="color: var(--accent); margin-top:0;">Accesso Gestione Cantina</h2>
-        <p style="font-size: 14px; color: #666;">Inserisci il PIN di sicurezza per registrare un carico o scarico.</p>
         <div class="form-group">
-          <input type="password" id="admin-pin" placeholder="Inserisci Password" onkeydown="if(event.key==='Enter') verifyPin()">
+          <input type="password" id="admin-pin" placeholder="Inserisci Password (1234)" onkeydown="if(event.key==='Enter') verifyPin()">
         </div>
         <button class="btn-submit" onclick="verifyPin()">Accedi</button>
         <p id="pin-error" style="color: #c62828; display: none; margin-top: 10px; font-weight: bold;"></p>
       </div>
 
-      <!-- FASE 2: FORM MOVIMENTO -->
       <div id="admin-form" style="display: none;">
         <h2 style="color: var(--accent); margin-top:0;">Registra Movimento Cantina</h2>
         <form id="movement-form" onsubmit="submitMovement(event)">
           <div class="form-group">
             <label>Seleziona Vino *</label>
-            <select id="mov-etichetta" required>
-              <option value="">-- Scegli Etichetta --</option>
-            </select>
+            <select id="mov-etichetta" required><option value="">-- Scegli Etichetta --</option></select>
           </div>
-          
           <div class="form-group">
             <label>Tipo Movimento *</label>
             <select id="mov-tipo" required>
@@ -149,17 +121,14 @@
               <option value="OUT">OUT (-) Scarico Vendita</option>
             </select>
           </div>
-
           <div class="form-group">
             <label>Quantità (Bottiglie) *</label>
             <input type="number" id="mov-quantita" min="1" value="1" required>
           </div>
-
           <div class="form-group">
             <label>Riferimento / Note (opzionale)</label>
-            <input type="text" id="mov-note" placeholder="es. Tavolo 4, Fattura N. 120, OMAGGIO">
+            <input type="text" id="mov-note" placeholder="es. Tavolo 4, Fattura N. 120">
           </div>
-
           <button type="submit" class="btn-submit" id="btn-save-mov">Salva Movimento</button>
         </form>
         <p id="mov-status" style="display: none; margin-top: 12px; font-weight: bold; text-align: center;"></p>
@@ -168,9 +137,8 @@
   </div>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwg12alG1UptQLeHRMgRO0jlmn9motxzqWgHZrqA6iaB9is_-OQv_z2rANY1DyzKJAxjg/exec";
-    https://script.google.com/macros/s/AKfycbxclvbfkqjpzCBvGll3Lh7UcO7oZJZXekmdrA1-Uy4biYnr2JXwFEI1bFyQh9POsKtsxg/exec
-    const ADMIN_PIN = "1234"; // Imposta qui la tua Password / PIN di sicurezza
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9gdAnlAk_AThXSpUh_SuLOpCM3nUK2c9bkiZ_UL6RZrodnRO3ta_geqzwPTeTkozXQw/exec";
+    const ADMIN_PIN = "1234";
     let listaVini = [];
 
     async function loadData() {
@@ -189,7 +157,7 @@
           gradazione: item["Gradazione"] || "",
           prezzo: item["Prezzo Vendita Agriturismo Lusso (€)"] ? "€ " + item["Prezzo Vendita Agriturismo Lusso (€)"] : "",
           calice: item["Calice Coravin (€)"] ? "€ " + item["Calice Coravin (€)"] : "",
-          giacenza: item["Giacenza"] !== undefined && item["Giacenza"] !== "" ? Number(item["Giacenza"]) : 0,
+          giacenza: item["Giacenza"] !== undefined ? Number(item["Giacenza"]) : 0,
           organolettico: item["Profilo Organolettico"] || "",
           fatica: item["Storia di Fatica & Simbiosi"] || "",
           note: item["Note Particolari"] || item["Note"] || ""
@@ -199,8 +167,8 @@
         renderGrid(listaVini);
         renderTable(listaVini);
       } catch (error) {
-        console.error("Errore nel caricamento dei vini:", error);
-        document.getElementById('grid-container').innerHTML = `<div class="loading">Errore durante il caricamento dei dati. Riprova più tardi.</div>`;
+        console.error("Errore nel caricamento:", error);
+        document.getElementById('grid-container').innerHTML = `<div class="loading">Errore durante il caricamento dei dati.</div>`;
       }
     }
 
@@ -214,7 +182,7 @@
     function renderGrid(vini) {
       const container = document.getElementById('grid-container');
       if (vini.length === 0) {
-        container.innerHTML = `<div class="loading">Nessun vino trovato con i filtri selezionati.</div>`;
+        container.innerHTML = `<div class="loading">Nessun vino trovato.</div>`;
         return;
       }
       container.innerHTML = vini.map(v => `
@@ -222,7 +190,7 @@
           <span class="badge">${v.colore}</span>
           <span class="badge">${v.regione}</span>
           <span class="badge ${v.giacenza > 0 ? 'badge-giacenza' : 'badge-esaurito'}">
-            ${v.giacenza > 0 ? 'Disponibili: ' + v.giacenza : 'Esaurito'}
+            ${v.giacenza > 0 ? 'Disp: ' + v.giacenza : 'Esaurito'}
           </span>
           <h3>${v.etichetta}</h3>
           <p><strong>${v.produttore}</strong> (${v.annata})</p>
@@ -244,11 +212,7 @@
           <td>${v.annata}</td>
           <td>${v.gradazione}</td>
           <td><strong>${v.prezzo}</strong></td>
-          <td>
-            <span class="badge ${v.giacenza > 0 ? 'badge-giacenza' : 'badge-esaurito'}">
-              ${v.giacenza} bot.
-            </span>
-          </td>
+          <td><span class="badge ${v.giacenza > 0 ? 'badge-giacenza' : 'badge-esaurito'}">${v.giacenza} bot.</span></td>
           <td style="font-size: 12px; color: #555;">${v.note || '-'}</td>
         </tr>
       `).join('');
@@ -265,11 +229,119 @@
       fillSelect('filter-produttore', 'produttore');
       fillSelect('filter-regione', 'regione');
 
-      // Popola anche il menu a tendina dell'Admin per la registrazione movimenti
       const movSelect = document.getElementById('mov-etichetta');
       movSelect.innerHTML = '<option value="">-- Scegli Etichetta --</option>' + 
         listaVini.map(v => `<option value="${v.etichetta}">${v.etichetta} (${v.produttore} - ${v.annata})</option>`).join('');
     }
 
     function applyFilters() {
-      const col =
+      const col = document.getElementById('filter-colore').value;
+      const vit = document.getElementById('filter-vitigno').value;
+      const prod = document.getElementById('filter-produttore').value;
+      const reg = document.getElementById('filter-regione').value;
+
+      const filtered = listaVini.filter(v => 
+        (!col || v.colore === col) &&
+        (!vit || v.vitigno === vit) &&
+        (!prod || v.produttore === prod) &&
+        (!reg || v.regione === reg)
+      );
+
+      renderGrid(filtered);
+      renderTable(filtered);
+    }
+
+    function resetFilters() {
+      document.getElementById('filter-colore').value = "";
+      document.getElementById('filter-vitigno').value = "";
+      document.getElementById('filter-produttore').value = "";
+      document.getElementById('filter-regione').value = "";
+      applyFilters();
+    }
+
+    function openModal(encodedEtichetta) {
+      const etichetta = decodeURIComponent(encodedEtichetta);
+      const vino = listaVini.find(v => v.etichetta === etichetta);
+      if (!vino) return;
+      document.getElementById('modal-body').innerHTML = `
+        <span class="close-btn" onclick="closeModal('modal-dettaglio')">&times;</span>
+        <h2 style="color: var(--accent); margin-top:0;">${vino.etichetta} ${vino.annata}</h2>
+        <p><strong>Produttore:</strong> ${vino.produttore} (${vino.regione})</p>
+        <p><strong>Giacenza:</strong> <span class="badge ${vino.giacenza > 0 ? 'badge-giacenza' : 'badge-esaurito'}">${vino.giacenza} Bottiglie</span></p>
+        <hr>
+        <p><strong>Vitigno:</strong> ${vino.vitigno} | <strong>Gradazione:</strong> ${vino.gradazione}</p>
+        <p><strong>Prezzo Carta:</strong> ${vino.prezzo} | <strong>Coravin:</strong> ${vino.calice}</p>
+        <h4>Profilo Organolettico</h4>
+        <p>${vino.organolettico}</p>
+        ${vino.note ? `<h4>Note</h4><p style="background: #fff8e7; padding: 10px; border-radius: 6px;">${vino.note}</p>` : ''}
+        <h4>Storia di Fatica & Simbiosi</h4>
+        <p style="background: #f9f9f9; padding: 12px; border-left: 4px solid var(--accent);">${vino.fatica}</p>
+      `;
+      document.getElementById('modal-dettaglio').style.display = 'flex';
+    }
+
+    function openAdminModal() {
+      document.getElementById('admin-auth').style.display = 'block';
+      document.getElementById('admin-form').style.display = 'none';
+      document.getElementById('admin-pin').value = '';
+      document.getElementById('pin-error').style.display = 'none';
+      document.getElementById('modal-admin').style.display = 'flex';
+    }
+
+    function verifyPin() {
+      if (document.getElementById('admin-pin').value === ADMIN_PIN) {
+        document.getElementById('admin-auth').style.display = 'none';
+        document.getElementById('admin-form').style.display = 'block';
+      } else {
+        const err = document.getElementById('pin-error');
+        err.innerText = "Password errata!";
+        err.style.display = 'block';
+      }
+    }
+
+    async function submitMovement(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-save-mov');
+      const status = document.getElementById('mov-status');
+      
+      const payload = {
+        pin: ADMIN_PIN,
+        etichetta: document.getElementById('mov-etichetta').value,
+        tipo: document.getElementById('mov-tipo').value,
+        quantita: document.getElementById('mov-quantita').value,
+        note: document.getElementById('mov-note').value
+      };
+
+      btn.disabled = true;
+      status.style.display = 'block';
+      status.innerText = "Registrazione in corso...";
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+        const res = await response.json();
+        if (res.success) {
+          status.style.color = "#2e7d32";
+          status.innerText = "✅ Movimento registrato!";
+          document.getElementById('movement-form').reset();
+          await loadData();
+          setTimeout(() => closeModal('modal-admin'), 1500);
+        } else {
+          throw new Error(res.message);
+        }
+      } catch (err) {
+        status.style.color = "#c62828";
+        status.innerText = "❌ Errore durante il salvataggio.";
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    window.onload = loadData;
+  </script>
+</body>
+</html>
