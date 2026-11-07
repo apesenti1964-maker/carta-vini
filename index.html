@@ -13,6 +13,10 @@
     .tab-btn { background: #eee; border: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; }
     .tab-btn.active { background: var(--accent); color: white; }
     
+    /* PULSANTE ADMIN */
+    .btn-admin { background: #2B2B2B; color: white; border: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    .btn-admin:hover { background: #444; }
+
     /* VISTA LISTA SINTETICA */
     .table-container { overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
     table { width: 100%; border-collapse: collapse; text-align: left; }
@@ -21,7 +25,7 @@
 
     /* VISTA FILTRI & SCHEDE */
     .filters-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; background: white; padding: 15px; border-radius: 8px; align-items: center; }
-    select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; background: white; font-size: 14px; }
+    select, input[type="text"], input[type="number"], input[type="password"] { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; background: white; font-size: 14px; box-sizing: border-box; }
     .btn-clear { background: #666; color: white; border: none; padding: 9px 14px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
     .btn-clear:hover { background: #444; }
 
@@ -30,12 +34,18 @@
     .card-vino:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     .card-vino h3 { margin: 0 0 8px 0; color: var(--accent); font-size: 18px; }
     .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; background: #f0f0f0; margin-right: 5px; font-weight: bold; }
+    .badge-giacenza { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+    .badge-esaurito { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
 
-    /* MODALE DETTAGLIO SCHEDA */
+    /* MODALE DETTAGLIO SCHEDA & ADMIN */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 1000; }
     .modal-content { background: white; width: 90%; max-width: 650px; border-radius: 12px; padding: 25px; max-height: 85vh; overflow-y: auto; position: relative; }
     .close-btn { position: absolute; top: 15px; right: 20px; font-size: 24px; cursor: pointer; color: #888; }
     .loading { text-align: center; padding: 40px; font-size: 18px; color: #666; }
+    
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
+    .btn-submit { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -45,6 +55,7 @@
     <div class="nav-tabs">
       <button class="tab-btn active" onclick="switchView('filtri', event)">Filtri & Schede</button>
       <button class="tab-btn" onclick="switchView('lista', event)">Lista Sintetica</button>
+      <button class="btn-admin" onclick="openAdminModal()">🔒 Admin Movimenti</button>
     </div>
   </header>
 
@@ -85,6 +96,7 @@
             <th>Annata</th>
             <th>Grad.</th>
             <th>Prezzo</th>
+            <th>Giacenza</th>
             <th>Note Particolari</th>
           </tr>
         </thead>
@@ -98,13 +110,66 @@
   <!-- MODALE DETTAGLIO VINO -->
   <div class="modal" id="modal-dettaglio">
     <div class="modal-content" id="modal-body">
-      <span class="close-btn" onclick="closeModal()">&times;</span>
+      <span class="close-btn" onclick="closeModal('modal-dettaglio')">&times;</span>
       <!-- Contenuto dinamico -->
+    </div>
+  </div>
+
+  <!-- MODALE ADMIN / REGISTRAZIONE MOVIMENTI -->
+  <div class="modal" id="modal-admin">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closeModal('modal-admin')">&times;</span>
+      
+      <!-- FASE 1: INSERIMENTO PASSWORD -->
+      <div id="admin-auth">
+        <h2 style="color: var(--accent); margin-top:0;">Accesso Gestione Cantina</h2>
+        <p style="font-size: 14px; color: #666;">Inserisci il PIN di sicurezza per registrare un carico o scarico.</p>
+        <div class="form-group">
+          <input type="password" id="admin-pin" placeholder="Inserisci Password" onkeydown="if(event.key==='Enter') verifyPin()">
+        </div>
+        <button class="btn-submit" onclick="verifyPin()">Accedi</button>
+        <p id="pin-error" style="color: #c62828; display: none; margin-top: 10px; font-weight: bold;"></p>
+      </div>
+
+      <!-- FASE 2: FORM MOVIMENTO -->
+      <div id="admin-form" style="display: none;">
+        <h2 style="color: var(--accent); margin-top:0;">Registra Movimento Cantina</h2>
+        <form id="movement-form" onsubmit="submitMovement(event)">
+          <div class="form-group">
+            <label>Seleziona Vino *</label>
+            <select id="mov-etichetta" required>
+              <option value="">-- Scegli Etichetta --</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>Tipo Movimento *</label>
+            <select id="mov-tipo" required>
+              <option value="IN">IN (+) Carico Acquisto</option>
+              <option value="OUT">OUT (-) Scarico Vendita</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Quantità (Bottiglie) *</label>
+            <input type="number" id="mov-quantita" min="1" value="1" required>
+          </div>
+
+          <div class="form-group">
+            <label>Riferimento / Note (opzionale)</label>
+            <input type="text" id="mov-note" placeholder="es. Tavolo 4, Fattura N. 120, OMAGGIO">
+          </div>
+
+          <button type="submit" class="btn-submit" id="btn-save-mov">Salva Movimento</button>
+        </form>
+        <p id="mov-status" style="display: none; margin-top: 12px; font-weight: bold; text-align: center;"></p>
+      </div>
     </div>
   </div>
 
   <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxAmuFTov7UwnEOyjGBkOrbdjc0MPqVSwriVoxch8hqq2DHclYgHAj0NYYE7IZ5lpJ_Og/exec";
+    const ADMIN_PIN = "1234"; // Imposta qui la tua Password / PIN di sicurezza
     let listaVini = [];
 
     async function loadData() {
@@ -123,6 +188,7 @@
           gradazione: item["Gradazione"] || "",
           prezzo: item["Prezzo Vendita Agriturismo Lusso (€)"] ? "€ " + item["Prezzo Vendita Agriturismo Lusso (€)"] : "",
           calice: item["Calice Coravin (€)"] ? "€ " + item["Calice Coravin (€)"] : "",
+          giacenza: item["Giacenza"] !== undefined && item["Giacenza"] !== "" ? Number(item["Giacenza"]) : 0,
           organolettico: item["Profilo Organolettico"] || "",
           fatica: item["Storia di Fatica & Simbiosi"] || "",
           note: item["Note Particolari"] || item["Note"] || ""
@@ -154,6 +220,9 @@
         <div class="card-vino" onclick="openModal('${encodeURIComponent(v.etichetta)}')">
           <span class="badge">${v.colore}</span>
           <span class="badge">${v.regione}</span>
+          <span class="badge ${v.giacenza > 0 ? 'badge-giacenza' : 'badge-esaurito'}">
+            ${v.giacenza > 0 ? 'Disponibili: ' + v.giacenza : 'Esaurito'}
+          </span>
           <h3>${v.etichetta}</h3>
           <p><strong>${v.produttore}</strong> (${v.annata})</p>
           <p style="font-size: 13px; color: #666;">Vitigno: ${v.vitigno}</p>
@@ -174,6 +243,11 @@
           <td>${v.annata}</td>
           <td>${v.gradazione}</td>
           <td><strong>${v.prezzo}</strong></td>
+          <td>
+            <span class="badge ${v.giacenza > 0 ? 'badge-giacenza' : 'badge-esaurito'}">
+              ${v.giacenza} bot.
+            </span>
+          </td>
           <td style="font-size: 12px; color: #555;">${v.note || '-'}</td>
         </tr>
       `).join('');
@@ -189,59 +263,12 @@
       fillSelect('filter-vitigno', 'vitigno');
       fillSelect('filter-produttore', 'produttore');
       fillSelect('filter-regione', 'regione');
+
+      // Popola anche il menu a tendina dell'Admin per la registrazione movimenti
+      const movSelect = document.getElementById('mov-etichetta');
+      movSelect.innerHTML = '<option value="">-- Scegli Etichetta --</option>' + 
+        listaVini.map(v => `<option value="${v.etichetta}">${v.etichetta} (${v.produttore} - ${v.annata})</option>`).join('');
     }
 
     function applyFilters() {
-      const col = document.getElementById('filter-colore').value;
-      const vit = document.getElementById('filter-vitigno').value;
-      const prod = document.getElementById('filter-produttore').value;
-      const reg = document.getElementById('filter-regione').value;
-
-      const filtered = listaVini.filter(v => 
-        (!col || v.colore === col) &&
-        (!vit || v.vitigno === vit) &&
-        (!prod || v.produttore === prod) &&
-        (!reg || v.regione === reg)
-      );
-
-      renderGrid(filtered);
-      renderTable(filtered);
-    }
-
-    function resetFilters() {
-      document.getElementById('filter-colore').value = "";
-      document.getElementById('filter-vitigno').value = "";
-      document.getElementById('filter-produttore').value = "";
-      document.getElementById('filter-regione').value = "";
-      applyFilters();
-    }
-
-    function openModal(encodedEtichetta) {
-      const etichetta = decodeURIComponent(encodedEtichetta);
-      const vino = listaVini.find(v => v.etichetta === etichetta);
-      if (!vino) return;
-      const modalBody = document.getElementById('modal-body');
-      modalBody.innerHTML = `
-        <span class="close-btn" onclick="closeModal()">&times;</span>
-        <h2 style="color: var(--accent); margin-top:0;">${vino.etichetta} ${vino.annata}</h2>
-        <p><strong>Produttore:</strong> ${vino.produttore} (${vino.regione})</p>
-        <hr>
-        <p><strong>Vitigno:</strong> ${vino.vitigno} | <strong>Gradazione:</strong> ${vino.gradazione}</p>
-        <p><strong>Prezzo Carta:</strong> ${vino.prezzo} | <strong>Coravin Calice:</strong> ${vino.calice}</p>
-        <h4>Profilo Organolettico</h4>
-        <p>${vino.organolettico}</p>
-        ${vino.note ? `<h4>Note Particolari</h4><p style="background: #fff8e7; padding: 10px; border-radius: 6px; border: 1px solid #ffe0b2;">${vino.note}</p>` : ''}
-        <h4>Storia di Fatica & Simbiosi</h4>
-        <p style="background: #f9f9f9; padding: 12px; border-left: 4px solid var(--accent);">${vino.fatica}</p>
-      `;
-      document.getElementById('modal-dettaglio').style.display = 'flex';
-    }
-
-    function closeModal() {
-      document.getElementById('modal-dettaglio').style.display = 'none';
-    }
-
-    window.onload = loadData;
-  </script>
-</body>
-</html>
+      const col =
