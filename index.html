@@ -1,0 +1,31 @@
+
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxAmuFTov7UwnEOyjGBkOrbdjc0MPqVSwriVoxch8hqq2DHclYgHAj0NYYE7IZ5lpJ_Og/exec";
+
+async function loadData() {
+  try {
+    const response = await fetch(SCRIPT_URL);
+    const rawData = await response.json();
+    
+    // Mappatura automatica dei campi dallo Sheet alle variabili della Web App
+    listaVini = rawData.map(item => ({
+      produttore: item["Produttore"] || "",
+      etichetta: item["Etichetta"] || "",
+      annata: item["Annata"] || "",
+      stato: item["Stato"] || "",
+      regione: item["Regione/Area"] || "",
+      colore: item["Colore/Stile"] || "",
+      vitigno: item["Vitigno / Famiglia"] || "",
+      gradazione: item["Gradazione"] || "",
+      prezzo: item["Prezzo Vendita Agriturismo Lusso (€)"] ? "€ " + item["Prezzo Vendita Agriturismo Lusso (€)"] : "",
+      calice: item["Calice Coravin (€)"] ? "€ " + item["Calice Coravin (€)"] : "",
+      organolettico: item["Profilo Organolettico"] || "",
+      fatica: item["Storia di Fatica & Simbiosi"] || ""
+    }));
+
+    populateDropdowns();
+    renderGrid(listaVini);
+    renderTable(listaVini);
+  } catch (error) {
+    console.error("Errore nel caricamento dei vini:", error);
+  }
+}
