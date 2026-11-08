@@ -9,10 +9,10 @@
     body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
     header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--accent); padding-bottom: 15px; margin-bottom: 20px; }
     h1 { color: var(--accent); margin: 0; font-size: 24px; }
-    .nav-tabs { display: flex; gap: 10px; align-items: center; }
+    .nav-tabs { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .tab-btn { background: #eee; border: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; }
     .tab-btn.active { background: var(--accent); color: white; }
-    
+
     .btn-admin { background: #2B2B2B; color: white; border: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; }
     .btn-admin:hover { background: #444; }
 
@@ -22,7 +22,8 @@
     th { background-color: #f8f8f8; color: var(--accent); font-weight: 600; }
 
     .filters-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; background: white; padding: 15px; border-radius: 8px; align-items: center; }
-    select, input[type="text"], input[type="number"], input[type="password"] { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; background: white; font-size: 14px; box-sizing: border-box; }
+    select, input[type="text"], input[type="number"], input[type="password"], textarea { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; background: white; font-size: 14px; box-sizing: border-box; font-family: inherit; }
+    textarea { resize: vertical; min-height: 60px; }
     .btn-clear { background: #666; color: white; border: none; padding: 9px 14px; border-radius: 4px; font-weight: bold; cursor: pointer; }
 
     .grid-vini { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
@@ -37,10 +38,17 @@
     .modal-content { background: white; width: 90%; max-width: 650px; border-radius: 12px; padding: 25px; max-height: 85vh; overflow-y: auto; position: relative; }
     .close-btn { position: absolute; top: 15px; right: 20px; font-size: 24px; cursor: pointer; color: #888; }
     .loading { text-align: center; padding: 40px; font-size: 18px; color: #666; }
-    
+
     .form-group { margin-bottom: 15px; }
     .form-group label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 520px) { .form-row { grid-template-columns: 1fr; } }
+    .form-hint { font-size: 12px; color: #777; margin: 4px 0 0 0; font-weight: normal; }
     .btn-submit { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; margin-top: 10px; }
+    .btn-submit:disabled { opacity: 0.6; cursor: wait; }
+
+    .anag-modes { display: flex; gap: 8px; margin-bottom: 18px; }
+    .anag-modes .tab-btn { flex: 1; }
   </style>
 </head>
 <body>
@@ -51,6 +59,7 @@
       <button class="tab-btn active" onclick="switchView('filtri', event)">Filtri & Schede</button>
       <button class="tab-btn" onclick="switchView('lista', event)">Lista Sintetica</button>
       <button class="btn-admin" onclick="openAdminModal()">🔒 Admin Movimenti</button>
+      <button class="btn-admin" onclick="openAnagModal()">🔒 Anag</button>
     </div>
   </header>
 
@@ -65,7 +74,7 @@
     </div>
     <!-- Contatore vini -->
     <div id="counter-vini" style="font-weight: bold; margin-bottom: 15px; color: var(--accent); font-size: 15px;">Vini trovati: 0</div>
-    
+
     <div class="grid-vini" id="grid-container">
       <div class="loading">Caricamento carta vini in corso...</div>
     </div>
@@ -140,16 +149,135 @@
     </div>
   </div>
 
+  <!-- ===== MODALE ANAGRAFICA VINI ===== -->
+  <div class="modal" id="modal-anag">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closeModal('modal-anag')">&times;</span>
+
+      <div id="anag-auth">
+        <h2 style="color: var(--accent); margin-top:0;">Accesso Anagrafica Vini</h2>
+        <div class="form-group">
+          <input type="password" id="anag-pin" placeholder="Inserisci Password" onkeydown="if(event.key==='Enter') verifyAnagPin()">
+        </div>
+        <button class="btn-submit" onclick="verifyAnagPin()">Accedi</button>
+        <p id="anag-pin-error" style="color: #c62828; display: none; margin-top: 10px; font-weight: bold;"></p>
+      </div>
+
+      <div id="anag-panel" style="display: none;">
+        <h2 style="color: var(--accent); margin-top:0;">Anagrafica Vini</h2>
+        <div class="anag-modes">
+          <button type="button" class="tab-btn active" id="anag-mode-add" onclick="setAnagMode('add')">Nuovo vino</button>
+          <button type="button" class="tab-btn" id="anag-mode-edit" onclick="setAnagMode('edit')">Modifica vino</button>
+        </div>
+
+        <div class="form-group" id="anag-select-wrap" style="display: none;">
+          <label>Vino da modificare *</label>
+          <select id="anag-select" onchange="loadAnagWine()"><option value="">-- Scegli Etichetta --</option></select>
+        </div>
+
+        <form id="anag-form" onsubmit="submitAnag(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Produttore *</label>
+              <input type="text" id="anag-produttore" list="dl-produttore" required>
+            </div>
+            <div class="form-group">
+              <label>Etichetta *</label>
+              <input type="text" id="anag-etichetta" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Annata</label>
+              <input type="text" id="anag-annata" placeholder="es. 2019 o NV">
+            </div>
+            <div class="form-group">
+              <label>Stato</label>
+              <input type="text" id="anag-stato" list="dl-stato" placeholder="Disponibile">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Regione / Area</label>
+              <input type="text" id="anag-regione" list="dl-regione">
+            </div>
+            <div class="form-group">
+              <label>Sottozona</label>
+              <input type="text" id="anag-sottozona">
+              <p class="form-hint" id="anag-hint-sottozona" style="display:none;">Lascia vuoto per non modificarla</p>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Colore / Stile</label>
+              <input type="text" id="anag-colore" list="dl-colore">
+            </div>
+            <div class="form-group">
+              <label>Vitigno / Famiglia</label>
+              <input type="text" id="anag-vitigno" list="dl-vitigno">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Gradazione</label>
+              <input type="text" id="anag-gradazione" placeholder="es. 13,5%">
+            </div>
+            <div class="form-group">
+              <label>Posizione</label>
+              <input type="text" id="anag-posizione" placeholder="es. Cantina scaffale B3">
+              <p class="form-hint" id="anag-hint-posizione" style="display:none;">Lascia vuoto per non modificarla</p>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Prezzo bottiglia (€)</label>
+              <input type="text" id="anag-prezzo" inputmode="decimal" placeholder="es. 45">
+            </div>
+            <div class="form-group">
+              <label>Prezzo calice Coravin (€)</label>
+              <input type="text" id="anag-calice" inputmode="decimal" placeholder="es. 12">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Profilo organolettico</label>
+            <textarea id="anag-organolettico"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Storia di Fatica & Simbiosi</label>
+            <textarea id="anag-fatica"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Note</label>
+            <textarea id="anag-note"></textarea>
+          </div>
+
+          <p class="form-hint" id="anag-warn-rename" style="display:none; margin-bottom: 8px;">
+            Attenzione: la giacenza è legata al nome dell'etichetta. Se cambi l'etichetta, aggiorna anche i nomi nel foglio Movimenti.
+          </p>
+          <button type="submit" class="btn-submit" id="btn-save-anag">Aggiungi vino</button>
+        </form>
+        <p id="anag-status" style="display: none; margin-top: 12px; font-weight: bold; text-align: center;"></p>
+      </div>
+    </div>
+  </div>
+
+  <datalist id="dl-produttore"></datalist>
+  <datalist id="dl-stato"></datalist>
+  <datalist id="dl-regione"></datalist>
+  <datalist id="dl-colore"></datalist>
+  <datalist id="dl-vitigno"></datalist>
+
   <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxQBO5QqhYPyE0ePCrTqh6JkPa3tOOTLiMG-RKCZ7lCaPuQNQk8RjXVg6Bqdx7O8B54mw/exec";
     const ADMIN_PIN = "1234";
     let listaVini = [];
+    let anagMode = 'add'; // 'add' | 'edit'
 
     async function loadData() {
       try {
         const response = await fetch(SCRIPT_URL);
         const rawData = await response.json();
-        
+
         listaVini = rawData.map(item => ({
           produttore: item["Produttore"] || "",
           etichetta: item["Etichetta"] || "",
@@ -171,7 +299,7 @@
 
         // ⬇️ Chiamata unica che renderizza griglia, tabella e aggiorna il contatore iniziale
         applyFilters();
-        
+
         renderGrid(listaVini);
         renderTable(listaVini);
       } catch (error) {
@@ -226,6 +354,10 @@
       `).join('');
     }
 
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
     function populateDropdowns() {
       const fillSelect = (id, key) => {
         const select = document.getElementById(id);
@@ -238,8 +370,26 @@
       fillSelect('filter-regione', 'regione');
 
       const movSelect = document.getElementById('mov-etichetta');
-      movSelect.innerHTML = '<option value="">-- Scegli Etichetta --</option>' + 
+      movSelect.innerHTML = '<option value="">-- Scegli Etichetta --</option>' +
         listaVini.map(v => `<option value="${v.etichetta}">${v.etichetta} (${v.produttore} - ${v.annata})</option>`).join('');
+
+      // Suggerimenti per i campi dell'anagrafica
+      const fillList = (id, key, extra) => {
+        const vals = [...new Set(listaVini.map(v => v[key]).concat(extra || []))].filter(Boolean).sort();
+        document.getElementById(id).innerHTML = vals.map(o => `<option value="${escapeHtml(o)}"></option>`).join('');
+      };
+      fillList('dl-produttore', 'produttore');
+      fillList('dl-stato', 'stato', ['Disponibile']);
+      fillList('dl-regione', 'regione');
+      fillList('dl-colore', 'colore');
+      fillList('dl-vitigno', 'vitigno');
+
+      // Elenco vini nella sezione "Modifica" (il valore è la posizione nell'elenco)
+      const anagSelect = document.getElementById('anag-select');
+      const current = anagSelect.value;
+      anagSelect.innerHTML = '<option value="">-- Scegli Etichetta --</option>' +
+        listaVini.map((v, i) => `<option value="${i}">${escapeHtml(v.etichetta)} (${escapeHtml(v.produttore)} - ${escapeHtml(v.annata)})</option>`).join('');
+      anagSelect.value = current;
     }
 
     function applyFilters() {
@@ -248,7 +398,7 @@
       const prod = document.getElementById('filter-produttore').value;
       const reg = document.getElementById('filter-regione').value;
 
-      const filtered = listaVini.filter(v => 
+      const filtered = listaVini.filter(v =>
         (!col || v.colore === col) &&
         (!vit || v.vitigno === vit) &&
         (!prod || v.produttore === prod) &&
@@ -316,7 +466,7 @@
       e.preventDefault();
       const btn = document.getElementById('btn-save-mov');
       const status = document.getElementById('mov-status');
-      
+
       const payload = {
         pin: ADMIN_PIN,
         etichetta: document.getElementById('mov-etichetta').value,
@@ -336,7 +486,7 @@
           body: JSON.stringify(payload)
         });
         const res = await response.json();
-        if (res.success) {
+        if (res.success || res.result === "success") {
           status.style.color = "#2e7d32";
           status.innerText = "✅ Movimento registrato!";
           document.getElementById('movement-form').reset();
@@ -348,6 +498,133 @@
       } catch (err) {
         status.style.color = "#c62828";
         status.innerText = "❌ Errore durante il salvataggio.";
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    /* ===================== ANAGRAFICA VINI ===================== */
+    const ANAG_FIELDS = ['produttore', 'etichetta', 'annata', 'stato', 'regione', 'sottozona',
+                         'colore', 'vitigno', 'gradazione', 'posizione', 'prezzo', 'calice',
+                         'organolettico', 'fatica', 'note'];
+
+    function openAnagModal() {
+      document.getElementById('anag-auth').style.display = 'block';
+      document.getElementById('anag-panel').style.display = 'none';
+      document.getElementById('anag-pin').value = '';
+      document.getElementById('anag-pin-error').style.display = 'none';
+      document.getElementById('modal-anag').style.display = 'flex';
+    }
+
+    function verifyAnagPin() {
+      if (document.getElementById('anag-pin').value === ADMIN_PIN) {
+        document.getElementById('anag-auth').style.display = 'none';
+        document.getElementById('anag-panel').style.display = 'block';
+        setAnagMode('add');
+      } else {
+        const err = document.getElementById('anag-pin-error');
+        err.innerText = "Password errata!";
+        err.style.display = 'block';
+      }
+    }
+
+    function clearAnagForm() {
+      ANAG_FIELDS.forEach(f => { document.getElementById('anag-' + f).value = ''; });
+    }
+
+    function setAnagMode(mode) {
+      anagMode = mode;
+      const isEdit = mode === 'edit';
+      document.getElementById('anag-mode-add').classList.toggle('active', !isEdit);
+      document.getElementById('anag-mode-edit').classList.toggle('active', isEdit);
+      document.getElementById('anag-select-wrap').style.display = isEdit ? 'block' : 'none';
+      document.getElementById('anag-hint-sottozona').style.display = isEdit ? 'block' : 'none';
+      document.getElementById('anag-hint-posizione').style.display = isEdit ? 'block' : 'none';
+      document.getElementById('anag-warn-rename').style.display = isEdit ? 'block' : 'none';
+      document.getElementById('btn-save-anag').innerText = isEdit ? 'Salva modifiche' : 'Aggiungi vino';
+      document.getElementById('anag-select').value = '';
+      document.getElementById('anag-status').style.display = 'none';
+      clearAnagForm();
+      if (!isEdit) document.getElementById('anag-stato').value = 'Disponibile';
+    }
+
+    function stripEuro(s) {
+      return String(s || '').replace('€', '').trim();
+    }
+
+    function loadAnagWine() {
+      const idx = document.getElementById('anag-select').value;
+      clearAnagForm();
+      if (idx === '') return;
+      const v = listaVini[Number(idx)];
+      if (!v) return;
+      document.getElementById('anag-produttore').value = v.produttore;
+      document.getElementById('anag-etichetta').value = v.etichetta;
+      document.getElementById('anag-annata').value = v.annata;
+      document.getElementById('anag-stato').value = v.stato;
+      document.getElementById('anag-regione').value = v.regione;
+      document.getElementById('anag-colore').value = v.colore;
+      document.getElementById('anag-vitigno').value = v.vitigno;
+      document.getElementById('anag-gradazione').value = v.gradazione;
+      document.getElementById('anag-prezzo').value = stripEuro(v.prezzo);
+      document.getElementById('anag-calice').value = stripEuro(v.calice);
+      document.getElementById('anag-organolettico').value = v.organolettico;
+      document.getElementById('anag-fatica').value = v.fatica;
+      document.getElementById('anag-note').value = v.note;
+    }
+
+    async function submitAnag(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-save-anag');
+      const status = document.getElementById('anag-status');
+      const val = f => document.getElementById('anag-' + f).value.trim();
+
+      const payload = { pin: ADMIN_PIN };
+      ANAG_FIELDS.forEach(f => { payload[f] = val(f); });
+
+      if (anagMode === 'edit') {
+        const idx = document.getElementById('anag-select').value;
+        if (idx === '') {
+          status.style.display = 'block';
+          status.style.color = "#c62828";
+          status.innerText = "Scegli prima il vino da modificare.";
+          return;
+        }
+        const old = listaVini[Number(idx)];
+        payload.action = "UPDATE_WINE_ADMIN";
+        payload.oldProduttore = old.produttore;
+        payload.oldEtichetta = old.etichetta;
+        // Sottozona e posizione non vengono lette dalla carta: se vuote non vengono toccate
+        if (!payload.sottozona) delete payload.sottozona;
+        if (!payload.posizione) delete payload.posizione;
+      } else {
+        payload.action = "ADD_WINE";
+        if (!payload.stato) payload.stato = "Disponibile";
+      }
+
+      btn.disabled = true;
+      status.style.display = 'block';
+      status.style.color = "#444";
+      status.innerText = "Salvataggio in corso...";
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+        const res = await response.json();
+        if (res.result === "success") {
+          status.style.color = "#2e7d32";
+          status.innerText = anagMode === 'edit' ? "✅ Vino aggiornato!" : "✅ Vino aggiunto!";
+          await loadData();
+          setTimeout(() => closeModal('modal-anag'), 1500);
+        } else {
+          throw new Error(res.message || "Errore sconosciuto");
+        }
+      } catch (err) {
+        status.style.color = "#c62828";
+        status.innerText = "❌ Errore durante il salvataggio: " + err.message;
       } finally {
         btn.disabled = false;
       }
