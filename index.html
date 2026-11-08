@@ -49,9 +49,23 @@
 
     .anag-modes { display: flex; gap: 8px; margin-bottom: 18px; }
     .anag-modes .tab-btn { flex: 1; }
+
+    /* ===== Schermata di apertura ===== */
+    #splash { position: fixed; inset: 0; z-index: 2000; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 20px; box-sizing: border-box; transition: opacity 0.6s ease; }
+    #splash.hide { opacity: 0; pointer-events: none; }
+    #splash img { width: min(88vw, 554px, 62vh); height: auto; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.18); }
+    #splash h1 { font-size: clamp(22px, 4vw, 34px); letter-spacing: 2px; text-align: center; }
+    #splash .btn-enter { background: var(--accent); color: white; border: none; padding: 14px 44px; border-radius: 6px; font-size: 18px; font-weight: bold; cursor: pointer; }
+    #splash .btn-enter:hover { background: #8f2222; }
   </style>
 </head>
 <body>
+
+  <div id="splash">
+    <img src="copertina.jpg" alt="Simbiosi">
+    <h1>CARTA VINI SIMBIOSI</h1>
+    <button class="btn-enter" onclick="enterSite()">Entra</button>
+  </div>
 
   <header>
     <h1>CARTA VINI SIMBIOSI</h1>
@@ -628,6 +642,12 @@
       } finally {
         btn.disabled = false;
       }
+    }
+
+    function enterSite() {
+      const splash = document.getElementById('splash');
+      splash.classList.add('hide');
+      setTimeout(() => { splash.style.display = 'none'; }, 600);
     }
 
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
