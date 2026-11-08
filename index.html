@@ -51,10 +51,12 @@
     .anag-modes .tab-btn { flex: 1; }
 
     /* ===== Schermata di apertura ===== */
-    #splash { position: fixed; inset: 0; z-index: 2000; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 20px; box-sizing: border-box; transition: opacity 0.6s ease; }
+    #splash { position: fixed; inset: 0; z-index: 2000; background: var(--bg); display: flex; overflow-y: auto; padding: 20px; box-sizing: border-box; transition: opacity 0.6s ease; }
     #splash.hide { opacity: 0; pointer-events: none; }
-    #splash img { width: min(88vw, 554px, 62vh); height: auto; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.18); }
+    .splash-inner { margin: auto; display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; }
+    #splash img { width: min(88vw, 554px, 42vh); min-width: 220px; height: auto; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.18); }
     #splash h1 { font-size: clamp(22px, 4vw, 34px); letter-spacing: 2px; text-align: center; }
+    .splash-text { max-width: 620px; margin: 0; text-align: center; font-family: Georgia, 'Times New Roman', serif; font-size: clamp(15px, 2vw, 18px); line-height: 1.65; color: #444; }
     #splash .btn-enter { background: var(--accent); color: white; border: none; padding: 14px 44px; border-radius: 6px; font-size: 18px; font-weight: bold; cursor: pointer; }
     #splash .btn-enter:hover { background: #8f2222; }
   </style>
@@ -62,9 +64,12 @@
 <body>
 
   <div id="splash">
-    <img src="copertina.jpg" alt="Simbiosi">
-    <h1>CARTA VINI SIMBIOSI</h1>
-    <button class="btn-enter" onclick="enterSite()">Entra</button>
+    <div class="splash-inner">
+      <img src="copertina.jpg" alt="Simbiosi">
+      <h1>CARTA VINI SIMBIOSI</h1>
+      <p class="splash-text">Chiamiamo “Simbiosi” quell’equilibrio sottile e tenace che si genera quando il ceppo incontra la roccia impervia, la pendenza estrema e la quota alpina. In queste terre d’asperità, la pianta non si limita a resistere: modifica il proprio passo, spinge le radici nelle fessure della pietra ed estrae una sapidità irripetibile. L’uomo, senza pretenderne il dominio, ne asseconda il disegno con il lavoro manuale e la gerla sulle spalle. Il calice che ne deriva è l’impronta liquida di questo patto tra tempo, sforzo e roccia.</p>
+      <button class="btn-enter" onclick="enterSite()">Entra</button>
+    </div>
   </div>
 
   <header>
