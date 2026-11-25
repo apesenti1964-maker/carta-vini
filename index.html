@@ -161,7 +161,10 @@
             </div>
           </div>
           <div class="form-row">
+            <div class="form-group"><label>Stato</label><input type="text" id="anag-stato" list="dl-stato" placeholder="es. Italia, Francia"></div>
             <div class="form-group"><label>Regione / Area</label><input type="text" id="anag-regione" list="dl-regione"></div>
+          </div>
+          <div class="form-row">
             <div class="form-group"><label>Sottozona</label><input type="text" id="anag-sottozona"></div>
           </div>
           <div class="form-row">
@@ -188,12 +191,13 @@
   </div>
 
   <datalist id="dl-produttore"></datalist>
+  <datalist id="dl-stato"></datalist>
   <datalist id="dl-regione"></datalist>
   <datalist id="dl-colore"></datalist>
   <datalist id="dl-vitigno"></datalist>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw2OXmhLOTmh0-6ZTVhS-FVp7FozfeSDz7fjRdNrmNvjCJ8Xzg-3eTpQFQXFPvLPkbrqg/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwrQpTbJ5uMRr45KNNmL1QyFqsp1a0Sdk0RHgVd1TWi9zu3Q3Neslt8-i34qS0M227GNQ/exec";
     const ADMIN_PIN = "1234";
     let listaVini = [];
     let anagMode = 'add';
@@ -211,7 +215,8 @@
           produttore:item["Produttore"] || "",
           etichetta:item["Etichetta"] || "",
           annata:item["Annata"] || "",
-          visibile:item["Visibile"] !== undefined ? item["Visibile"] : (item["Stato"] || ""),
+          visibile:item["Visibile"] || "",
+          stato:item["Stato"] || "",
           regione:item["Regione/Area"] || "",
           sottozona:item["Sottozona"] || "",
           colore:item["Colore/Stile"] || "",
@@ -324,7 +329,7 @@
         return;
       }
       container.innerHTML = vini.map(v => `
-        <div class="card-vino" onclick="openModal('${encodeURIComponent(v.etichetta)}')">
+        <div class="card-vino" onclick="openModal(${listaVini.indexOf(v)})">
           ${toneBadge(v)}
           <span class="badge">${v.regione}</span>
           <span class="badge ${v.giacenza > 0 ? 'badge-giacenza' : 'badge-esaurito'}">${v.giacenza > 0 ? 'Disp: ' + v.giacenza : 'Esaurito'}</span>
@@ -366,6 +371,7 @@
         document.getElementById(id).innerHTML = vals.map(o => `<option value="${escapeHtml(o)}"></option>`).join('');
       };
       fillList('dl-produttore','produttore');
+      fillList('dl-stato','stato');
       fillList('dl-regione','regione');
       fillList('dl-colore','colore');
       fillList('dl-vitigno','vitigno');
@@ -399,14 +405,13 @@
       applyFilters();
     }
 
-    function openModal(encodedEtichetta) {
-      const etichetta = decodeURIComponent(encodedEtichetta);
-      const vino = listaVini.find(v => v.etichetta === etichetta);
+    function openModal(idx) {
+      const vino = listaVini[idx];
       if (!vino) return;
       document.getElementById('modal-body').innerHTML = `
         <span class="close-btn" onclick="closeModal('modal-dettaglio')">&times;</span>
         <h2 style="color:#5F5F5F;margin-top:0;">${vino.etichetta} ${vino.annata}</h2>
-        <p><strong>Produttore:</strong> ${vino.produttore} (${vino.regione})</p>
+        <p><strong>Produttore:</strong> ${vino.produttore} (${[vino.regione, vino.stato].filter(Boolean).join(', ')})</p>
         <p><strong>Giacenza:</strong> <span class="badge ${vino.giacenza > 0 ? 'badge-giacenza' : 'badge-esaurito'}">${vino.giacenza} Bottiglie</span></p>
         <hr><p><strong>Vitigno:</strong> ${vino.vitigno} | <strong>Gradazione:</strong> ${vino.gradazione}</p>
         <p><strong>Prezzo Carta:</strong> ${vino.prezzo} | <strong>Coravin:</strong> ${vino.calice}</p>
@@ -476,7 +481,7 @@
       }
     }
 
-    const ANAG_FIELDS = ['produttore','etichetta','annata','visibile','regione','sottozona','colore','vitigno','gradazione','posizione','prezzo','calice','organolettico','fatica','note'];
+    const ANAG_FIELDS = ['produttore','etichetta','annata','visibile','stato','regione','sottozona','colore','vitigno','gradazione','posizione','prezzo','calice','organolettico','fatica','note'];
 
     function openAnagModal() {
       document.getElementById('anag-auth').style.display = 'block';
@@ -530,6 +535,7 @@
       document.getElementById('anag-etichetta').value = v.etichetta;
       document.getElementById('anag-annata').value = v.annata;
       document.getElementById('anag-visibile').value = isWineVisible(v) ? 'si' : 'no';
+      document.getElementById('anag-stato').value = v.stato;
       document.getElementById('anag-regione').value = v.regione;
       document.getElementById('anag-sottozona').value = v.sottozona;
       document.getElementById('anag-colore').value = v.colore;
