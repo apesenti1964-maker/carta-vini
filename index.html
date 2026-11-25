@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Carta Vini Simbiosi - Tablet Edition</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <style>
     :root { --accent:#7A1C1C; --bg:#FDFBF7; --card-bg:#FFF; --text:#2B2B2B; }
     body { font-family:'Helvetica Neue',Arial,sans-serif; background:var(--bg); color:var(--text); margin:0; padding:20px; }
@@ -58,6 +60,19 @@
     .splash-text { max-width:620px; margin:0; text-align:center; font-family:Georgia,'Times New Roman',serif; font-size:clamp(15px,2vw,18px); line-height:1.65; color:#444; }
     #splash .btn-enter { background:var(--accent); color:#fff; border:0; padding:14px 44px; border-radius:6px; font-size:18px; font-weight:bold; cursor:pointer; }
     #splash .btn-enter:hover { background:#8f2222; }
+    #map { height:58vh; min-height:340px; border-radius:8px; border:1px solid #e5e5e5; z-index:0; }
+    .map-breadcrumb { margin-bottom:10px; font-size:15px; color:#888; }
+    .map-crumb { background:none; border:0; padding:4px 2px; font-size:15px; font-weight:bold; color:var(--accent); cursor:pointer; }
+    .map-panel { background:#fff; border-radius:8px; padding:16px; margin-top:14px; box-shadow:0 2px 8px rgba(0,0,0,.05); }
+    .map-chips { display:flex; flex-wrap:wrap; gap:8px; }
+    .map-chip { background:#f3eeee; color:var(--accent); border:1px solid #e3d3d3; border-radius:16px; padding:8px 14px; font-weight:bold; cursor:pointer; }
+    .map-chip:hover { background:var(--accent); color:#fff; }
+    .map-wine { padding:10px 4px; border-bottom:1px solid #eee; cursor:pointer; font-size:14px; }
+    .map-wine:hover { background:#faf6f6; }
+    .map-pin-wrap { background:none; border:0; }
+    .map-pin { position:absolute; transform:translate(-50%,-50%); background:var(--accent); color:#fff; border:2px solid #fff; border-radius:16px; padding:4px 10px; font-size:13px; font-weight:bold; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,.35); cursor:pointer; }
+    .map-pin.cantina { background:#fff; color:var(--accent); border-color:var(--accent); }
+    .map-pin.sel { background:var(--accent); color:#fff; border-color:#fff; outline:2px solid var(--accent); }
   </style>
 </head>
 <body>
@@ -75,6 +90,7 @@
     <div class="nav-tabs">
       <button class="tab-btn active" onclick="switchView('filtri',event)">Filtri & Schede</button>
       <button class="tab-btn" onclick="switchView('lista',event)">Lista Sintetica</button>
+      <button class="tab-btn" onclick="switchView('mappa',event)">Mappa</button>
       <button class="btn-admin" onclick="openAdminModal()">🔒 Admin Movimenti</button>
       <button class="btn-admin" onclick="openAnagModal()">🔒 Anag</button>
     </div>
@@ -99,6 +115,12 @@
         <tbody id="table-body"></tbody>
       </table>
     </div>
+  </div>
+
+  <div id="view-mappa" style="display:none;">
+    <div id="map-breadcrumb" class="map-breadcrumb"></div>
+    <div id="map"></div>
+    <div id="map-panel" class="map-panel"></div>
   </div>
 
   <div class="modal" id="modal-dettaglio">
@@ -157,7 +179,7 @@
             <div class="form-group"><label>Annata</label><input type="text" id="anag-annata" placeholder="es. 2019 o NV"></div>
             <div class="form-group">
               <label>Visibile in lista</label>
-              <select id="anag-visibile"><option value="si">Sì</option><option value="no">No</option></select>
+              <select id="anag-visibile"><option value="S">Sì</option><option value="N">No</option></select>
             </div>
           </div>
           <div class="form-row">
@@ -207,6 +229,13 @@
       return n ? '€ ' + n : '';
     }
 
+    // Coordinata numerica oppure null se mancante/non valida.
+    function toCoord(x) {
+      if (x === '' || x == null) return null;
+      const n = Number(String(x).replace(',', '.'));
+      return Number.isFinite(n) ? n : null;
+    }
+
     async function loadData() {
       try {
         const response = await fetch(SCRIPT_URL + '?t=' + Date.now(), { cache:'no-store' });
@@ -218,11 +247,14 @@
           visibile:item["Visibile"] || "",
           stato:item["Stato"] || "",
           regione:item["Regione/Area"] || "",
-          sottozona:item["Sottozona"] || "",
+          sottozona:item["Zona/Sottozona"] || item["Sottozona"] || "",
           colore:item["Colore/Stile"] || "",
           vitigno:item["Vitigno / Famiglia"] || "",
           gradazione:item["Gradazione"] || "",
           posizione:item["Posizione"] || "",
+          comune:item["Comune"] || "",
+          lat:toCoord(item["Latitudine"]),
+          lng:toCoord(item["Longitudine"]),
           prezzo:fmtEuro(item["Prezzo Vendita Agriturismo Lusso (€)"]),
           calice:fmtEuro(item["Calice Coravin (€)"]),
           giacenza:item["Giacenza"] !== undefined ? Number(item["Giacenza"]) : 0,
@@ -232,6 +264,7 @@
         }));
         populateDropdowns();
         applyFilters();
+        renderMap(true);
       } catch (error) {
         console.error("Errore nel caricamento:", error);
         document.getElementById('grid-container').innerHTML = '<div class="loading">Errore durante il caricamento dei dati.</div>';
@@ -241,8 +274,148 @@
     function switchView(view, evt) {
       document.getElementById('view-filtri').style.display = view === 'filtri' ? 'block' : 'none';
       document.getElementById('view-lista').style.display = view === 'lista' ? 'block' : 'none';
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('view-mappa').style.display = view === 'mappa' ? 'block' : 'none';
+      document.querySelectorAll('.nav-tabs .tab-btn').forEach(b => b.classList.remove('active'));
       evt.target.classList.add('active');
+      if (view === 'mappa') showMap();
+    }
+
+    /* ===== Mappa: Stato -> Regione -> Cantina ===== */
+    let map = null, mapLayer = null, mapItems = [];
+    let mapState = null, mapRegion = null, mapProducer = null;
+
+    function regioneBase(s) {
+      return String(s || '').split('(')[0].split(',')[0].split('/')[0].trim() || 'N/D';
+    }
+
+    // Una voce per cantina, con i soli vini visibili.
+    function buildProducers() {
+      const byKey = {};
+      listaVini.forEach((v, i) => {
+        if (!isWineVisible(v)) return;
+        const k = normalizza(v.produttore);
+        if (!k) return;
+        if (!byKey[k]) {
+          byKey[k] = { nome:v.produttore, comune:v.comune, lat:v.lat, lng:v.lng,
+                       stato:v.stato || 'N/D', regione:regioneBase(v.regione), wines:[] };
+        }
+        byKey[k].wines.push(i);
+      });
+      return Object.values(byKey);
+    }
+
+    function showMap() {
+      if (!map) {
+        map = L.map('map', { worldCopyJump:true });
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom:18,
+          attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+        mapLayer = L.layerGroup().addTo(map);
+      }
+      // Il contenitore era nascosto: Leaflet deve ricalcolare le dimensioni.
+      setTimeout(() => { map.invalidateSize(); renderMap(); }, 0);
+    }
+
+    function mapGo(level) {
+      if (level < 2) mapProducer = null;
+      if (level < 1) mapRegion = null;
+      if (level < 0) mapState = null;
+      renderMap();
+    }
+
+    function mapPick(i) {
+      const it = mapItems[i];
+      if (!it) return;
+      if (it.kind === 'stato') { mapState = it.key; mapRegion = null; mapProducer = null; }
+      else if (it.kind === 'regione') { mapRegion = it.key; mapProducer = null; }
+      else { mapProducer = it.producer; }
+      renderMap(it.kind === 'cantina');
+    }
+
+    function groupBy(list, keyFn, kind) {
+      const g = {};
+      list.forEach(p => {
+        const k = keyFn(p);
+        if (!g[k]) g[k] = { kind, key:k, label:k, producers:[] };
+        g[k].producers.push(p);
+      });
+      return Object.values(g).map(x => ({
+        ...x,
+        count:x.producers.length,
+        lat:x.producers.reduce((s, p) => s + p.lat, 0) / x.producers.length,
+        lng:x.producers.reduce((s, p) => s + p.lng, 0) / x.producers.length
+      })).sort((a, b) => a.label.localeCompare(b.label));
+    }
+
+    function renderMap(keepView) {
+      if (!map) return;
+      const all = buildProducers();
+      const placed = all.filter(p => p.lat != null && p.lng != null);
+      const unplaced = all.filter(p => p.lat == null || p.lng == null);
+
+      if (!mapState) {
+        mapItems = groupBy(placed, p => p.stato, 'stato');
+      } else if (!mapRegion) {
+        mapItems = groupBy(placed.filter(p => p.stato === mapState), p => p.regione, 'regione');
+      } else {
+        mapItems = placed.filter(p => p.stato === mapState && p.regione === mapRegion)
+          .sort((a, b) => a.nome.localeCompare(b.nome))
+          .map(p => ({ kind:'cantina', key:p.nome, label:p.nome, count:p.wines.length,
+                       lat:p.lat, lng:p.lng, producer:p }));
+      }
+
+      const crumbs = [`<button type="button" class="map-crumb" onclick="mapGo(-1)">Mondo</button>`];
+      if (mapState) crumbs.push(`<button type="button" class="map-crumb" onclick="mapGo(0)">${escapeHtml(mapState)}</button>`);
+      if (mapRegion) crumbs.push(`<button type="button" class="map-crumb" onclick="mapGo(1)">${escapeHtml(mapRegion)}</button>`);
+      document.getElementById('map-breadcrumb').innerHTML = crumbs.join(' › ');
+
+      mapLayer.clearLayers();
+      mapItems.forEach((it, i) => {
+        const unit = it.kind === 'cantina' ? '' : ` · ${it.count}`;
+        const icon = L.divIcon({
+          className:'map-pin-wrap', iconSize:[0, 0],
+          html:`<div class="map-pin ${it.kind}${mapProducer && it.producer === mapProducer ? ' sel' : ''}">${escapeHtml(it.label)}${unit}</div>`
+        });
+        L.marker([it.lat, it.lng], { icon }).on('click', () => mapPick(i)).addTo(mapLayer);
+      });
+
+      if (!keepView && mapItems.length) {
+        const pts = mapItems.map(it => [it.lat, it.lng]);
+        if (pts.length === 1) map.setView(pts[0], 11);
+        else map.fitBounds(pts, { padding:[50, 50], maxZoom:12 });
+      } else if (!keepView) {
+        map.setView([46, 11], 4);
+      }
+
+      renderMapPanel(unplaced);
+    }
+
+    function renderMapPanel(unplaced) {
+      const panel = document.getElementById('map-panel');
+      let html = '';
+      if (mapProducer) {
+        const p = mapProducer;
+        html += `<h3 style="margin:0 0 4px;color:var(--accent);">${escapeHtml(p.nome)}</h3>
+          <p style="margin:0 0 12px;color:#666;font-size:13px;">${escapeHtml(p.comune || '')}</p>
+          <div class="map-wines">` + p.wines.map(i => {
+            const v = listaVini[i];
+            return `<div class="map-wine" onclick="openModal(${i})">
+              ${toneBadge(v)}<strong>${escapeHtml(v.etichetta)}</strong> ${escapeHtml(v.annata)}
+              <span class="badge ${v.giacenza > 0 ? 'badge-giacenza' : 'badge-esaurito'}">${v.giacenza > 0 ? 'Disp: ' + v.giacenza : 'Esaurito'}</span>
+              <span style="float:right;font-weight:bold;">${escapeHtml(v.prezzo)}</span></div>`;
+          }).join('') + '</div>';
+      } else {
+        const title = !mapState ? 'Scegli uno Stato' : !mapRegion ? 'Scegli una regione' : 'Scegli una cantina';
+        html += `<h3 style="margin:0 0 10px;color:var(--accent);">${title}</h3><div class="map-chips">` +
+          mapItems.map((it, i) => `<button type="button" class="map-chip" onclick="mapPick(${i})">${escapeHtml(it.label)}${it.kind === 'cantina' ? '' : ' · ' + it.count}</button>`).join('') +
+          '</div>';
+        if (!mapItems.length) html += '<p style="color:#666;">Nessuna cantina con posizione in questa zona.</p>';
+      }
+      if (unplaced.length && !mapState) {
+        html += `<p class="form-hint" style="margin-top:14px;">Senza posizione sulla mappa (manca la latitudine/longitudine in Produttori): ${unplaced.map(p => escapeHtml(p.nome)).join(', ')}.</p>`;
+      }
+      panel.innerHTML = html;
     }
 
     const TONES = {
@@ -317,9 +490,9 @@
       return `<span class="wine-mark" title="${escapeHtml(label)}" role="img" aria-label="${escapeHtml(label)}"><svg viewBox="0 0 34 39" aria-hidden="true">${glasses[type]}</svg></span>`;
     }
 
-    // Visibile = "si" (o vuoto). Nascosto se "no" / "non visibile".
+    // Visibile = "S" (o vuoto). Nascosto se "N" / "no" / "non visibile".
     function isWineVisible(v) {
-      return !['no','non visibile','false','0'].includes(normalizza(v.visibile));
+      return !['n','no','non visibile','false','0'].includes(normalizza(v.visibile));
     }
 
     function renderGrid(vini) {
@@ -518,7 +691,7 @@
       document.getElementById('anag-select').value = '';
       document.getElementById('anag-status').style.display = 'none';
       clearAnagForm();
-      if (!isEdit) document.getElementById('anag-visibile').value = 'si';
+      if (!isEdit) document.getElementById('anag-visibile').value = 'S';
     }
 
     function stripEuro(s) {
@@ -534,7 +707,7 @@
       document.getElementById('anag-produttore').value = v.produttore;
       document.getElementById('anag-etichetta').value = v.etichetta;
       document.getElementById('anag-annata').value = v.annata;
-      document.getElementById('anag-visibile').value = isWineVisible(v) ? 'si' : 'no';
+      document.getElementById('anag-visibile').value = isWineVisible(v) ? 'S' : 'N';
       document.getElementById('anag-stato').value = v.stato;
       document.getElementById('anag-regione').value = v.regione;
       document.getElementById('anag-sottozona').value = v.sottozona;
@@ -572,7 +745,7 @@
         payload.oldAnnata = old.annata;
       } else {
         payload.action = 'ADD_WINE';
-        if (!payload.visibile) payload.visibile = 'si';
+        if (!payload.visibile) payload.visibile = 'S';
       }
 
       btn.disabled = true;
