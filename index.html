@@ -117,7 +117,8 @@
       <div id="admin-form" style="display:none;">
         <h2 style="color:var(--accent);margin-top:0;">Registra Movimento Cantina</h2>
         <form id="movement-form" onsubmit="submitMovement(event)">
-          <div class="form-group"><label>Seleziona Vino *</label><select id="mov-etichetta" required><option value="">-- Scegli Etichetta --</option></select></div>
+          <div class="form-group"><label>Seleziona Vino *</label><select id="mov-etichetta" required onchange="updateMovPosizione()"><option value="">-- Scegli Etichetta --</option></select></div>
+          <div class="form-group"><label>Posizione magazzino (da anagrafica)</label><input type="text" id="mov-posizione" readonly placeholder="Seleziona un vino"><p class="form-hint">Per modificarla vai in Anag.</p></div>
           <div class="form-group"><label>Tipo Movimento *</label><select id="mov-tipo" required><option value="IN">IN (+) Carico Acquisto</option><option value="OUT">OUT (-) Scarico Vendita</option></select></div>
           <div class="form-group"><label>Quantità (Bottiglie) *</label><input type="number" id="mov-quantita" min="1" value="1" required></div>
           <div class="form-group"><label>Riferimento / Note (opzionale)</label><input type="text" id="mov-note" placeholder="es. Tavolo 4, Fattura N. 120"></div>
@@ -155,8 +156,8 @@
           <div class="form-row">
             <div class="form-group"><label>Annata</label><input type="text" id="anag-annata" placeholder="es. 2019 o NV"></div>
             <div class="form-group">
-              <label>Visibilità in lista</label>
-              <select id="anag-stato"><option value="Visibile">Visibile</option><option value="Non visibile">Non visibile</option></select>
+              <label>Visibile in lista</label>
+              <select id="anag-visibile"><option value="si">Sì</option><option value="no">No</option></select>
             </div>
           </div>
           <div class="form-row">
@@ -210,7 +211,7 @@
           produttore:item["Produttore"] || "",
           etichetta:item["Etichetta"] || "",
           annata:item["Annata"] || "",
-          stato:item["Stato"] || "",
+          visibile:item["Visibile"] !== undefined ? item["Visibile"] : (item["Stato"] || ""),
           regione:item["Regione/Area"] || "",
           sottozona:item["Sottozona"] || "",
           colore:item["Colore/Stile"] || "",
@@ -311,8 +312,9 @@
       return `<span class="wine-mark" title="${escapeHtml(label)}" role="img" aria-label="${escapeHtml(label)}"><svg viewBox="0 0 34 39" aria-hidden="true">${glasses[type]}</svg></span>`;
     }
 
+    // Visibile = "si" (o vuoto). Nascosto se "no" / "non visibile".
     function isWineVisible(v) {
-      return normalizza(v.stato) !== 'non visibile';
+      return !['no','non visibile','false','0'].includes(normalizza(v.visibile));
     }
 
     function renderGrid(vini) {
@@ -433,13 +435,21 @@
       }
     }
 
+    function updateMovPosizione() {
+      const et = document.getElementById('mov-etichetta').value;
+      const v = listaVini.find(x => x.etichetta === et);
+      document.getElementById('mov-posizione').value = v ? v.posizione : '';
+    }
+
     async function submitMovement(e) {
       e.preventDefault();
       const btn = document.getElementById('btn-save-mov');
       const status = document.getElementById('mov-status');
       const payload = {
         pin:ADMIN_PIN,
+        action:'ADD_MOVEMENT',
         etichetta:document.getElementById('mov-etichetta').value,
+        posizione:document.getElementById('mov-posizione').value,
         tipo:document.getElementById('mov-tipo').value,
         quantita:document.getElementById('mov-quantita').value,
         note:document.getElementById('mov-note').value
@@ -454,18 +464,19 @@
           status.style.color = '#2e7d32';
           status.innerText = '✅ Movimento registrato!';
           document.getElementById('movement-form').reset();
+          updateMovPosizione();
           await loadData();
           setTimeout(() => closeModal('modal-admin'),1500);
         } else throw new Error(res.message);
       } catch (err) {
         status.style.color = '#c62828';
-        status.innerText = '❌ Errore durante il salvataggio.';
+        status.innerText = '❌ Errore durante il salvataggio: ' + err.message;
       } finally {
         btn.disabled = false;
       }
     }
 
-    const ANAG_FIELDS = ['produttore','etichetta','annata','stato','regione','sottozona','colore','vitigno','gradazione','posizione','prezzo','calice','organolettico','fatica','note'];
+    const ANAG_FIELDS = ['produttore','etichetta','annata','visibile','regione','sottozona','colore','vitigno','gradazione','posizione','prezzo','calice','organolettico','fatica','note'];
 
     function openAnagModal() {
       document.getElementById('anag-auth').style.display = 'block';
@@ -502,7 +513,7 @@
       document.getElementById('anag-select').value = '';
       document.getElementById('anag-status').style.display = 'none';
       clearAnagForm();
-      if (!isEdit) document.getElementById('anag-stato').value = 'Visibile';
+      if (!isEdit) document.getElementById('anag-visibile').value = 'si';
     }
 
     function stripEuro(s) {
@@ -518,7 +529,7 @@
       document.getElementById('anag-produttore').value = v.produttore;
       document.getElementById('anag-etichetta').value = v.etichetta;
       document.getElementById('anag-annata').value = v.annata;
-      document.getElementById('anag-stato').value = normalizza(v.stato) === 'non visibile' ? 'Non visibile' : 'Visibile';
+      document.getElementById('anag-visibile').value = isWineVisible(v) ? 'si' : 'no';
       document.getElementById('anag-regione').value = v.regione;
       document.getElementById('anag-sottozona').value = v.sottozona;
       document.getElementById('anag-colore').value = v.colore;
@@ -555,7 +566,7 @@
         payload.oldAnnata = old.annata;
       } else {
         payload.action = 'ADD_WINE';
-        if (!payload.stato) payload.stato = 'Visibile';
+        if (!payload.visibile) payload.visibile = 'si';
       }
 
       btn.disabled = true;
