@@ -35,6 +35,16 @@
     .badge-giacenza { background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; }
     .badge-esaurito { background:#ffebee; color:#c62828; border:1px solid #ffcdd2; }
     .badge-tone { border:1px solid rgba(0,0,0,.15); letter-spacing:.3px; }
+    .badge-top { background:linear-gradient(135deg,#F6E27A,#C9A227); color:#4A3A08; border:1px solid #B8921E; letter-spacing:.5px; }
+    .card-vino.card-top { border:2px solid #C9A227; box-shadow:0 0 0 3px rgba(201,162,39,.15); background:linear-gradient(180deg,#FFFBEA,#fff 60%); }
+    tr.row-top td { background:#FFFBEA; }
+    .top-bar { margin-bottom:14px; }
+    .top-toggle { display:inline-flex; align-items:center; gap:8px; background:#fff; border:1px solid #e5e5e5; border-radius:20px; padding:8px 16px; font-weight:bold; cursor:pointer; user-select:none; }
+    .top-toggle input { width:18px; height:18px; accent-color:#C9A227; }
+    .top-toggle.on { background:linear-gradient(135deg,#F6E27A,#C9A227); border-color:#B8921E; color:#4A3A08; }
+    .map-pin.top { background:linear-gradient(135deg,#F6E27A,#C9A227); color:#4A3A08; border-color:#fff; }
+    .map-pin.cantina.top { border-color:#B8921E; }
+    .map-chip.top { background:linear-gradient(135deg,#FFF3B8,#F0D060); color:#4A3A08; border-color:#C9A227; }
     .wine-mark { display:inline-flex; align-items:center; vertical-align:middle; margin-right:5px; }
     .wine-mark svg { display:block; width:30px; height:36px; overflow:visible; }
     .wine-glass-outline { fill:rgba(255,255,255,.55); stroke:#625c56; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
@@ -96,6 +106,10 @@
       <button class="btn-admin" onclick="openAnagModal()">🔒 Anag</button>
     </div>
   </header>
+
+  <div class="top-bar">
+    <label class="top-toggle" id="top-toggle"><input type="checkbox" id="filter-top" onchange="setTopOnly(this.checked)"> ★ Solo Top Wine</label>
+  </div>
 
   <div id="view-filtri">
     <div class="filters-section">
@@ -184,6 +198,12 @@
             </div>
           </div>
           <div class="form-row">
+            <div class="form-group">
+              <label>★ Top Wine</label>
+              <select id="anag-top"><option value="N">No</option><option value="S">Sì</option></select>
+            </div>
+          </div>
+          <div class="form-row">
             <div class="form-group"><label>Stato</label><input type="text" id="anag-stato" list="dl-stato" placeholder="es. Italia, Francia"></div>
             <div class="form-group"><label>Regione / Area</label><input type="text" id="anag-regione" list="dl-regione"></div>
           </div>
@@ -246,6 +266,7 @@
           etichetta:item["Etichetta"] || "",
           annata:item["Annata"] || "",
           visibile:item["Visibile"] || "",
+          top:item["Top Wine"] || item["Top"] || "",
           stato:item["Stato"] || "",
           regione:item["Regione/Area"] || "",
           sottozona:item["Zona/Sottozona"] || item["Sottozona"] || "",
@@ -295,13 +316,15 @@
       const byKey = {};
       listaVini.forEach((v, i) => {
         if (!isWineVisible(v)) return;
+        if (topOnly && !isTop(v)) return;
         const k = normalizza(v.produttore);
         if (!k) return;
         if (!byKey[k]) {
           byKey[k] = { nome:v.produttore, comune:v.comune, sito:v.sito, lat:v.lat, lng:v.lng,
-                       stato:v.stato || 'N/D', regione:regioneBase(v.regione), wines:[] };
+                       stato:v.stato || 'N/D', regione:regioneBase(v.regione), wines:[], top:false };
         }
         byKey[k].wines.push(i);
+        if (isTop(v)) byKey[k].top = true;
       });
       return Object.values(byKey);
     }
@@ -355,6 +378,7 @@
       return Object.values(g).map(x => ({
         ...x,
         count:x.producers.length,
+        top:x.producers.some(p => p.top),
         lat:x.producers.reduce((s, p) => s + p.lat, 0) / x.producers.length,
         lng:x.producers.reduce((s, p) => s + p.lng, 0) / x.producers.length
       })).sort((a, b) => a.label.localeCompare(b.label));
@@ -374,7 +398,7 @@
         mapItems = placed.filter(p => p.stato === mapState && p.regione === mapRegion)
           .sort((a, b) => a.nome.localeCompare(b.nome))
           .map(p => ({ kind:'cantina', key:p.nome, label:p.nome, count:p.wines.length,
-                       lat:p.lat, lng:p.lng, producer:p }));
+                       lat:p.lat, lng:p.lng, producer:p, top:p.top }));
       }
 
       const crumbs = [`<button type="button" class="map-crumb" onclick="mapGo(-1)">Mondo</button>`];
@@ -387,7 +411,7 @@
         const unit = it.kind === 'cantina' ? '' : ` · ${it.count}`;
         const icon = L.divIcon({
           className:'map-pin-wrap', iconSize:[0, 0],
-          html:`<div class="map-pin ${it.kind}${mapProducer && it.producer === mapProducer ? ' sel' : ''}">${escapeHtml(it.label)}${unit}</div>`
+          html:`<div class="map-pin ${it.kind}${it.top ? ' top' : ''}${mapProducer && it.producer === mapProducer ? ' sel' : ''}">${it.top ? '★ ' : ''}${escapeHtml(it.label)}${unit}</div>`
         });
         L.marker([it.lat, it.lng], { icon }).on('click', () => mapPick(i)).addTo(mapLayer);
       });
@@ -413,14 +437,14 @@
           <div class="map-wines">` + p.wines.map(i => {
             const v = listaVini[i];
             return `<div class="map-wine" onclick="openModal(${i})">
-              ${toneBadge(v)}<strong>${escapeHtml(v.etichetta)}</strong> ${escapeHtml(v.annata)}
+              ${isTop(v) ? TOP_BADGE : ''}${toneBadge(v)}<strong>${escapeHtml(v.etichetta)}</strong> ${escapeHtml(v.annata)}
               <span class="badge ${v.giacenza > 0 ? 'badge-giacenza' : 'badge-esaurito'}">${v.giacenza > 0 ? 'Disp: ' + v.giacenza : 'Esaurito'}</span>
               <span style="float:right;font-weight:bold;">${escapeHtml(v.prezzo)}</span></div>`;
           }).join('') + '</div>';
       } else {
         const title = !mapState ? 'Scegli uno Stato' : !mapRegion ? 'Scegli una regione' : 'Scegli una cantina';
         html += `<h3 style="margin:0 0 10px;color:var(--accent);">${title}</h3><div class="map-chips">` +
-          mapItems.map((it, i) => `<button type="button" class="map-chip" onclick="mapPick(${i})">${escapeHtml(it.label)}${it.kind === 'cantina' ? '' : ' · ' + it.count}</button>`).join('') +
+          mapItems.map((it, i) => `<button type="button" class="map-chip${it.top ? ' top' : ''}" onclick="mapPick(${i})">${it.top ? '★ ' : ''}${escapeHtml(it.label)}${it.kind === 'cantina' ? '' : ' · ' + it.count}</button>`).join('') +
           '</div>';
         if (!mapItems.length) html += '<p style="color:#666;">Nessuna cantina con posizione in questa zona.</p>';
       }
@@ -512,6 +536,21 @@
       return !['n','no','non visibile','false','0'].includes(normalizza(v.visibile));
     }
 
+    // Top Wine = "S" nella colonna "Top Wine" del foglio.
+    let topOnly = false;
+    function isTop(v) {
+      return ['s','si','y','yes','true','1','x'].includes(normalizza(v.top));
+    }
+    const TOP_BADGE = '<span class="badge badge-top" title="Top Wine">★ TOP</span>';
+
+    function setTopOnly(on) {
+      topOnly = !!on;
+      document.getElementById('top-toggle').classList.toggle('on', topOnly);
+      mapProducer = null;
+      applyFilters();
+      renderMap();
+    }
+
     function renderGrid(vini) {
       const container = document.getElementById('grid-container');
       if (!vini.length) {
@@ -519,8 +558,8 @@
         return;
       }
       container.innerHTML = vini.map(v => `
-        <div class="card-vino" onclick="openModal(${listaVini.indexOf(v)})">
-          ${toneBadge(v)}
+        <div class="card-vino${isTop(v) ? ' card-top' : ''}" onclick="openModal(${listaVini.indexOf(v)})">
+          ${isTop(v) ? TOP_BADGE : ''}${toneBadge(v)}
           <span class="badge">${v.regione}</span>
           <span class="badge ${v.giacenza > 0 ? 'badge-giacenza' : 'badge-esaurito'}">${v.giacenza > 0 ? 'Disp: ' + v.giacenza : 'Esaurito'}</span>
           <h3>${v.etichetta}</h3>
@@ -532,7 +571,7 @@
 
     function renderTable(vini) {
       document.getElementById('table-body').innerHTML = vini.map(v => `
-        <tr><td>${toneBadge(v)}</td><td><strong class="t-prod">${v.produttore}</strong></td><td class="t-wine">${v.etichetta}</td>
+        <tr class="${isTop(v) ? 'row-top' : ''}"><td>${toneBadge(v)}</td><td><strong class="t-prod">${v.produttore}</strong></td><td class="t-wine">${isTop(v) ? TOP_BADGE + ' ' : ''}${v.etichetta}</td>
         <td>${v.vitigno}</td><td>${v.regione}</td><td>${v.annata}</td><td>${v.gradazione}</td><td><strong>${v.prezzo}</strong></td>
         <td><span class="badge ${v.giacenza > 0 ? 'badge-giacenza' : 'badge-esaurito'}">${v.giacenza} bot.</span></td>
         <td style="font-size:12px;color:#555;">${v.note || '-'}</td></tr>`).join('');
@@ -579,7 +618,7 @@
       const prod = document.getElementById('filter-produttore').value;
       const reg = document.getElementById('filter-regione').value;
       const visibleWines = listaVini.filter(isWineVisible);
-      const filtered = visibleWines.filter(v =>
+      const filtered = visibleWines.filter(v => (!topOnly || isTop(v)) &&
         (!col || v.colore === col) && (!vit || v.vitigno === vit) &&
         (!prod || v.produttore === prod) && (!reg || v.regione === reg)
       );
@@ -600,7 +639,7 @@
       if (!vino) return;
       document.getElementById('modal-body').innerHTML = `
         <span class="close-btn" onclick="closeModal('modal-dettaglio')">&times;</span>
-        <h2 style="color:#5F5F5F;margin-top:0;">${vino.etichetta} ${vino.annata}</h2>
+        <h2 style="color:#5F5F5F;margin-top:0;">${vino.etichetta} ${vino.annata} ${isTop(vino) ? TOP_BADGE : ''}</h2>
         <p><strong>Produttore:</strong> ${vino.produttore} (${[vino.regione, vino.stato].filter(Boolean).join(', ')})${siteLink(vino.sito, ' · ')}</p>
         <p><strong>Giacenza:</strong> <span class="badge ${vino.giacenza > 0 ? 'badge-giacenza' : 'badge-esaurito'}">${vino.giacenza} Bottiglie</span></p>
         <hr><p><strong>Vitigno:</strong> ${vino.vitigno} | <strong>Gradazione:</strong> ${vino.gradazione}</p>
@@ -671,7 +710,7 @@
       }
     }
 
-    const ANAG_FIELDS = ['produttore','etichetta','annata','visibile','stato','regione','sottozona','colore','vitigno','gradazione','posizione','prezzo','calice','organolettico','fatica','note'];
+    const ANAG_FIELDS = ['produttore','etichetta','annata','visibile','top','stato','regione','sottozona','colore','vitigno','gradazione','posizione','prezzo','calice','organolettico','fatica','note'];
 
     function openAnagModal() {
       document.getElementById('anag-auth').style.display = 'block';
@@ -708,6 +747,7 @@
       document.getElementById('anag-select').value = '';
       document.getElementById('anag-status').style.display = 'none';
       clearAnagForm();
+      document.getElementById('anag-top').value = 'N';
       if (!isEdit) document.getElementById('anag-visibile').value = 'S';
     }
 
@@ -725,6 +765,7 @@
       document.getElementById('anag-etichetta').value = v.etichetta;
       document.getElementById('anag-annata').value = v.annata;
       document.getElementById('anag-visibile').value = isWineVisible(v) ? 'S' : 'N';
+      document.getElementById('anag-top').value = isTop(v) ? 'S' : 'N';
       document.getElementById('anag-stato').value = v.stato;
       document.getElementById('anag-regione').value = v.regione;
       document.getElementById('anag-sottozona').value = v.sottozona;
