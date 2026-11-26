@@ -181,7 +181,7 @@
         </div>
         <form id="anag-form" onsubmit="submitAnag(event)">
           <div class="form-row">
-            <div class="form-group"><label>Produttore *</label><input type="text" id="anag-produttore" list="dl-produttore" required></div>
+            <div class="form-group"><label>Produttore *</label><input type="text" id="anag-produttore" list="dl-produttore" required onchange="onAnagProduttore()"></div>
             <div class="form-group"><label>Etichetta *</label><input type="text" id="anag-etichetta" required></div>
           </div>
           <div class="form-row">
@@ -750,7 +750,33 @@
       fillProdSelect();
     }
 
+    // Suggerimenti dei form: vini esistenti + anagrafica produttori
+    // (così un produttore appena creato, senza vini, è già proponibile).
+    function refreshProducerLists() {
+      const fill = (id, fromVini, fromProd) => {
+        const vals = new Set([...listaVini.map(v => v[fromVini]), ...listaProduttori.map(p => p[fromProd])].filter(Boolean));
+        document.getElementById(id).innerHTML = [...vals].sort((a, b) => a.localeCompare(b))
+          .map(o => `<option value="${escapeHtml(o)}"></option>`).join('');
+      };
+      fill('dl-produttore', 'produttore', 'nome');
+      fill('dl-stato', 'stato', 'stato');
+      fill('dl-regione', 'regione', 'regione');
+    }
+
+    // Scegliendo un produttore nel form vino, precompila Stato e Regione
+    // se sono ancora vuoti.
+    function onAnagProduttore() {
+      const nome = normalizza(document.getElementById('anag-produttore').value);
+      const p = listaProduttori.find(x => normalizza(x.nome) === nome);
+      if (!p) return;
+      const stato = document.getElementById('anag-stato');
+      const regione = document.getElementById('anag-regione');
+      if (!stato.value.trim() && p.stato) stato.value = p.stato;
+      if (!regione.value.trim() && p.regione) regione.value = p.regione;
+    }
+
     function fillProdSelect(selectNome) {
+      refreshProducerLists();
       const sel = document.getElementById('prod-select');
       const current = selectNome !== undefined ? selectNome : prodSelNome;
       const ordered = listaProduttori.map((p, i) => ({ p, i })).sort((a, b) => a.p.nome.localeCompare(b.p.nome));
