@@ -34,6 +34,7 @@
     .badge { display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; background:#f0f0f0; margin-right:5px; font-weight:bold; }
     .badge-giacenza { background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; }
     .badge-esaurito { background:#ffebee; color:#c62828; border:1px solid #ffcdd2; }
+    .badge-tone { border:1px solid rgba(0,0,0,.15); letter-spacing:.3px; }
     .wine-mark { display:inline-flex; align-items:center; vertical-align:middle; margin-right:5px; }
     .wine-mark svg { display:block; width:30px; height:36px; overflow:visible; }
     .wine-glass-outline { fill:rgba(255,255,255,.55); stroke:#625c56; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
@@ -498,7 +499,12 @@
         rose:`<path class="wine-glass-liquid" fill="${fill}" d="M6 14 C8 20 12 22 17 23 C22 22 26 20 28 14 C22 16 12 16 6 14 Z"/>${outline('M6 3 C6 13 8 20 17 23 C26 20 28 13 28 3 M17 23 V34 M10 35 H24')}`,
         sparkling:`<path class="wine-glass-liquid" fill="${fill}" d="M11 12 C12 17 14 19 17 20 C20 19 22 17 23 12 C20 14 14 14 11 12 Z"/>${outline('M10 3 C10 13 12 18 17 20 C22 18 24 13 24 3 M17 20 V34 M10 35 H24')}<circle class="wine-glass-bubble" cx="15" cy="12" r="1.1"/><circle class="wine-glass-bubble" cx="19" cy="9" r="0.8"/>`
       };
-      return `<span class="wine-mark" title="${escapeHtml(label)}" role="img" aria-label="${escapeHtml(label)}"><svg viewBox="0 0 34 39" aria-hidden="true">${glasses[type]}</svg></span>`;
+      const glass = `<span class="wine-mark" title="${escapeHtml(label)}" role="img" aria-label="${escapeHtml(label)}"><svg viewBox="0 0 34 39" aria-hidden="true">${glasses[type]}</svg></span>`;
+      // Etichetta colorata in base all'età del vino (colore/stile + annata).
+      const pill = tone
+        ? `<span class="badge badge-tone" title="${escapeHtml(tone.label)}" style="background:${tone.bg};color:${tone.fg};${tone.dashed ? 'border:1px dashed #9A9585;' : ''}">${escapeHtml(v.colore || tone.label)}</span>`
+        : `<span class="badge">${escapeHtml(v.colore)}</span>`;
+      return glass + pill;
     }
 
     // Visibile = "S" (o vuoto). Nascosto se "N" / "no" / "non visibile".
