@@ -269,6 +269,13 @@
       return n ? '€ ' + n : '';
     }
 
+    // Valore di una colonna cercata per nome senza badare a maiuscole e spazi
+    // (es. "Top WIne" nel foglio è comunque riconosciuta come "Top Wine").
+    function pickCol(item, names) {
+      const key = Object.keys(item).find(k => names.includes(String(k).trim().toLowerCase()));
+      return key !== undefined && item[key] != null ? item[key] : '';
+    }
+
     // Coordinata numerica oppure null se mancante/non valida.
     function toCoord(x) {
       if (x === '' || x == null) return null;
@@ -285,7 +292,7 @@
           etichetta:item["Etichetta"] || "",
           annata:item["Annata"] || "",
           visibile:item["Visibile"] || "",
-          top:item["Top Wine"] || item["Top"] || "",
+          top:pickCol(item, ['top wine','top']),
           stato:item["Stato"] || "",
           regione:item["Regione/Area"] || "",
           sottozona:item["Zona/Sottozona"] || item["Sottozona"] || "",
