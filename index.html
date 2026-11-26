@@ -102,8 +102,7 @@
       <button class="tab-btn active" onclick="switchView('filtri',event)">Filtri & Schede</button>
       <button class="tab-btn" onclick="switchView('lista',event)">Lista Sintetica</button>
       <button class="tab-btn" onclick="switchView('mappa',event)">Mappa</button>
-      <button class="btn-admin" onclick="openAdminModal()">🔒 Admin Movimenti</button>
-      <button class="btn-admin" onclick="openAnagModal()">🔒 Anag</button>
+      <button class="btn-admin" onclick="openAdminModal()">🔒 Admin</button>
     </div>
   </header>
 
@@ -151,32 +150,27 @@
         <button class="btn-submit" onclick="verifyPin()">Accedi</button>
         <p id="pin-error" style="color:#c62828;display:none;margin-top:10px;font-weight:bold;"></p>
       </div>
-      <div id="admin-form" style="display:none;">
-        <h2 style="color:var(--accent);margin-top:0;">Registra Movimento Cantina</h2>
+      <div id="admin-main" style="display:none;">
+        <h2 style="color:var(--accent);margin-top:0;">Gestione Cantina</h2>
+        <div class="anag-modes" style="border-bottom:2px solid #eee;padding-bottom:12px;">
+          <button type="button" class="tab-btn active" id="admin-sec-mov" onclick="setAdminSection('mov')">📦 Movimenti</button>
+          <button type="button" class="tab-btn" id="admin-sec-vini" onclick="setAdminSection('vini')">🍷 Vini</button>
+          <button type="button" class="tab-btn" id="admin-sec-prod" onclick="setAdminSection('prod')">🏡 Produttori</button>
+        </div>
+        <div id="admin-form">
+        <h3 style="color:var(--accent);margin-top:0;">Registra movimento</h3>
         <form id="movement-form" onsubmit="submitMovement(event)">
           <div class="form-group"><label>Seleziona Vino *</label><select id="mov-etichetta" required onchange="updateMovPosizione()"><option value="">-- Scegli Etichetta --</option></select></div>
-          <div class="form-group"><label>Posizione magazzino (da anagrafica)</label><input type="text" id="mov-posizione" readonly placeholder="Seleziona un vino"><p class="form-hint">Per modificarla vai in Anag.</p></div>
+          <div class="form-group"><label>Posizione magazzino (da anagrafica)</label><input type="text" id="mov-posizione" readonly placeholder="Seleziona un vino"><p class="form-hint">Per modificarla vai su Vini.</p></div>
           <div class="form-group"><label>Tipo Movimento *</label><select id="mov-tipo" required><option value="IN">IN (+) Carico Acquisto</option><option value="OUT">OUT (-) Scarico Vendita</option></select></div>
           <div class="form-group"><label>Quantità (Bottiglie) *</label><input type="number" id="mov-quantita" min="1" value="1" required></div>
           <div class="form-group"><label>Riferimento / Note (opzionale)</label><input type="text" id="mov-note" placeholder="es. Tavolo 4, Fattura N. 120"></div>
           <button type="submit" class="btn-submit" id="btn-save-mov">Salva Movimento</button>
         </form>
         <p id="mov-status" style="display:none;margin-top:12px;font-weight:bold;text-align:center;"></p>
-      </div>
-    </div>
-  </div>
+        </div>
 
-  <div class="modal" id="modal-anag">
-    <div class="modal-content">
-      <span class="close-btn" onclick="closeModal('modal-anag')">&times;</span>
-      <div id="anag-auth">
-        <h2 style="color:var(--accent);margin-top:0;">Accesso Anagrafica Vini</h2>
-        <div class="form-group"><input type="password" id="anag-pin" placeholder="Inserisci Password" onkeydown="if(event.key==='Enter') verifyAnagPin()"></div>
-        <button class="btn-submit" onclick="verifyAnagPin()">Accedi</button>
-        <p id="anag-pin-error" style="color:#c62828;display:none;margin-top:10px;font-weight:bold;"></p>
-      </div>
-      <div id="anag-panel" style="display:none;">
-        <h2 style="color:var(--accent);margin-top:0;">Anagrafica Vini</h2>
+        <div id="wine-panel" style="display:none;">
         <div class="anag-modes">
           <button type="button" class="tab-btn active" id="anag-mode-add" onclick="setAnagMode('add')">Nuovo vino</button>
           <button type="button" class="tab-btn" id="anag-mode-edit" onclick="setAnagMode('edit')">Modifica vino</button>
@@ -229,6 +223,31 @@
           <button type="submit" class="btn-submit" id="btn-save-anag">Aggiungi vino</button>
         </form>
         <p id="anag-status" style="display:none;margin-top:12px;font-weight:bold;text-align:center;"></p>
+        </div>
+
+        <div id="prod-panel" style="display:none;">
+          <div class="form-group">
+            <label>Produttore *</label>
+            <select id="prod-select" onchange="loadProd()"><option value="">➕ Nuovo produttore</option></select>
+          </div>
+          <form id="prod-form" onsubmit="submitProd(event)">
+            <div class="form-group"><label>Nome produttore *</label><input type="text" id="prod-nome" required></div>
+            <div class="form-group"><label>Comune</label><input type="text" id="prod-comune" placeholder="es. 12050 Barbaresco, CN"><p class="form-hint">Serve per la posizione sulla mappa: scrivi CAP, comune e provincia.</p></div>
+            <div class="form-row">
+              <div class="form-group"><label>Stato</label><input type="text" id="prod-stato" list="dl-stato" placeholder="es. Italia"></div>
+              <div class="form-group"><label>Regione</label><input type="text" id="prod-regione" list="dl-regione" placeholder="es. Piemonte"></div>
+            </div>
+            <div class="form-group"><label>Sito web</label><input type="text" id="prod-sito" placeholder="es. www.cantina.it"></div>
+            <div class="form-row">
+              <div class="form-group"><label>Latitudine</label><input type="text" id="prod-lat" inputmode="decimal"></div>
+              <div class="form-group"><label>Longitudine</label><input type="text" id="prod-lng" inputmode="decimal"></div>
+            </div>
+            <p class="form-hint">Latitudine e longitudine si calcolano da sole dal Comune: compilale solo se vuoi correggere la posizione a mano.</p>
+            <p class="form-hint" id="prod-warn-rename" style="display:none;margin-bottom:8px;">Se cambi il nome, viene aggiornato anche su tutti i suoi vini.</p>
+            <button type="submit" class="btn-submit" id="btn-save-prod">Aggiungi produttore</button>
+          </form>
+          <p id="prod-status" style="display:none;margin-top:12px;font-weight:bold;text-align:center;"></p>
+        </div>
       </div>
     </div>
   </div>
@@ -288,6 +307,7 @@
         populateDropdowns();
         applyFilters();
         renderMap(true);
+        await loadProduttori();
       } catch (error) {
         console.error("Errore nel caricamento:", error);
         document.getElementById('grid-container').innerHTML = '<div class="loading">Errore durante il caricamento dei dati.</div>';
@@ -652,7 +672,7 @@
 
     function openAdminModal() {
       document.getElementById('admin-auth').style.display = 'block';
-      document.getElementById('admin-form').style.display = 'none';
+      document.getElementById('admin-main').style.display = 'none';
       document.getElementById('admin-pin').value = '';
       document.getElementById('pin-error').style.display = 'none';
       document.getElementById('modal-admin').style.display = 'flex';
@@ -661,7 +681,8 @@
     function verifyPin() {
       if (document.getElementById('admin-pin').value === ADMIN_PIN) {
         document.getElementById('admin-auth').style.display = 'none';
-        document.getElementById('admin-form').style.display = 'block';
+        document.getElementById('admin-main').style.display = 'block';
+        setAdminSection('mov');
       } else {
         const err = document.getElementById('pin-error');
         err.innerText = 'Password errata!';
@@ -712,23 +733,93 @@
 
     const ANAG_FIELDS = ['produttore','etichetta','annata','visibile','top','stato','regione','sottozona','colore','vitigno','gradazione','posizione','prezzo','calice','organolettico','fatica','note'];
 
-    function openAnagModal() {
-      document.getElementById('anag-auth').style.display = 'block';
-      document.getElementById('anag-panel').style.display = 'none';
-      document.getElementById('anag-pin').value = '';
-      document.getElementById('anag-pin-error').style.display = 'none';
-      document.getElementById('modal-anag').style.display = 'flex';
+    /* ===== Anagrafica produttori ===== */
+    let listaProduttori = [];
+    let prodSelNome = '';
+
+    // Con uno script vecchio il parametro è ignorato e torna l'elenco vini:
+    // in quel caso la sezione Produttori resta vuota.
+    async function loadProduttori() {
+      try {
+        const r = await fetch(SCRIPT_URL + '?produttori=1&t=' + Date.now(), { cache:'no-store' });
+        const d = await r.json();
+        listaProduttori = Array.isArray(d) && (!d.length || d[0].nome !== undefined) ? d : [];
+      } catch (e) {
+        listaProduttori = [];
+      }
+      fillProdSelect();
     }
 
-    function verifyAnagPin() {
-      if (document.getElementById('anag-pin').value === ADMIN_PIN) {
-        document.getElementById('anag-auth').style.display = 'none';
-        document.getElementById('anag-panel').style.display = 'block';
-        setAnagMode('add');
-      } else {
-        const err = document.getElementById('anag-pin-error');
-        err.innerText = 'Password errata!';
-        err.style.display = 'block';
+    function fillProdSelect(selectNome) {
+      const sel = document.getElementById('prod-select');
+      const current = selectNome !== undefined ? selectNome : prodSelNome;
+      const ordered = listaProduttori.map((p, i) => ({ p, i })).sort((a, b) => a.p.nome.localeCompare(b.p.nome));
+      sel.innerHTML = '<option value="">➕ Nuovo produttore</option>' +
+        ordered.map(x => `<option value="${x.i}">${escapeHtml(x.p.nome)}${x.p.lat === '' || x.p.lat == null ? ' (senza posizione)' : ''}</option>`).join('');
+      const idx = listaProduttori.findIndex(p => p.nome === current);
+      sel.value = idx >= 0 ? String(idx) : '';
+    }
+
+    // Menu Admin: Movimenti | Vini | Produttori.
+    function setAdminSection(sec) {
+      const panels = { mov:'admin-form', vini:'wine-panel', prod:'prod-panel' };
+      Object.keys(panels).forEach(k => {
+        document.getElementById(panels[k]).style.display = k === sec ? 'block' : 'none';
+        document.getElementById('admin-sec-' + k).classList.toggle('active', k === sec);
+      });
+      if (sec === 'mov') updateMovPosizione();
+      if (sec === 'vini') setAnagMode('add');
+      if (sec === 'prod') { document.getElementById('prod-select').value = ''; loadProd(); }
+    }
+
+    function loadProd() {
+      const idx = document.getElementById('prod-select').value;
+      const p = idx === '' ? null : listaProduttori[Number(idx)];
+      prodSelNome = p ? p.nome : '';
+      const set =(f, v) => { document.getElementById('prod-' + f).value = v == null ? '' : v; };
+      set('nome', p ? p.nome : ''); set('comune', p ? p.comune : ''); set('stato', p ? p.stato : '');
+      set('regione', p ? p.regione : ''); set('sito', p ? p.sito : '');
+      set('lat', p ? p.lat : ''); set('lng', p ? p.lng : '');
+      document.getElementById('prod-warn-rename').style.display = p ? 'block' : 'none';
+      document.getElementById('btn-save-prod').innerText = p ? 'Salva modifiche' : 'Aggiungi produttore';
+      document.getElementById('prod-status').style.display = 'none';
+    }
+
+    async function submitProd(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-save-prod');
+      const status = document.getElementById('prod-status');
+      const val = f => document.getElementById('prod-' + f).value.trim();
+      const idx = document.getElementById('prod-select').value;
+      const payload = { pin:ADMIN_PIN, action: idx === '' ? 'ADD_PRODUCER' : 'UPDATE_PRODUCER',
+        nome:val('nome'), comune:val('comune'), stato:val('stato'), regione:val('regione'),
+        sito:val('sito'), lat:val('lat'), lng:val('lng') };
+      if (idx !== '') payload.oldNome = listaProduttori[Number(idx)].nome;
+
+      btn.disabled = true;
+      status.style.display = 'block';
+      status.style.color = '#444';
+      status.innerText = 'Salvataggio in corso...';
+      try {
+        const response = await fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload) });
+        const raw = await response.text();
+        let res;
+        try { res = JSON.parse(raw); }
+        catch (e2) { throw new Error('risposta non valida dal server (lo script è stato ripubblicato?)'); }
+        if (res.result !== 'success') throw new Error(res.message || 'Errore sconosciuto');
+        status.style.color = '#2e7d32';
+        status.innerText = '✅ ' + res.message;
+        await loadData();
+        fillProdSelect(payload.nome);
+        loadProd();
+        status.style.display = 'block';
+        status.style.color = '#2e7d32';
+        status.innerText = '✅ ' + res.message;
+      } catch (err) {
+        status.style.color = '#c62828';
+        status.innerText = '❌ Errore durante il salvataggio: ' + err.message;
+      } finally {
+        btn.disabled = false;
       }
     }
 
@@ -820,7 +911,7 @@
           status.style.color = '#2e7d32';
           status.innerText = anagMode === 'edit' ? '✅ Vino aggiornato!' : '✅ Vino aggiunto!';
           await loadData();
-          setTimeout(() => closeModal('modal-anag'),1500);
+          setTimeout(() => closeModal('modal-admin'),1500);
         } else throw new Error(res.message || 'Errore sconosciuto');
       } catch (err) {
         status.style.color = '#c62828';
