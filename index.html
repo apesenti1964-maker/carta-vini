@@ -253,6 +253,7 @@
           gradazione:item["Gradazione"] || "",
           posizione:item["Posizione"] || "",
           comune:item["Comune"] || "",
+          sito:item["Sito Web"] || "",
           lat:toCoord(item["Latitudine"]),
           lng:toCoord(item["Longitudine"]),
           prezzo:fmtEuro(item["Prezzo Vendita Agriturismo Lusso (€)"]),
@@ -296,12 +297,22 @@
         const k = normalizza(v.produttore);
         if (!k) return;
         if (!byKey[k]) {
-          byKey[k] = { nome:v.produttore, comune:v.comune, lat:v.lat, lng:v.lng,
+          byKey[k] = { nome:v.produttore, comune:v.comune, sito:v.sito, lat:v.lat, lng:v.lng,
                        stato:v.stato || 'N/D', regione:regioneBase(v.regione), wines:[] };
         }
         byKey[k].wines.push(i);
       });
       return Object.values(byKey);
+    }
+
+    // Link al sito della cantina. Accetta "www.x.it" e scarta schemi non http(s).
+    function siteLink(url, prefix) {
+      let u = String(url || '').trim();
+      if (!u) return '';
+      if (!/^[a-z][a-z0-9+.-]*:/i.test(u)) u = 'https://' + u;
+      if (!/^https?:\/\//i.test(u)) return '';
+      const label = u.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+      return `${prefix || ''}<a href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);font-weight:bold;">🌐 ${escapeHtml(label)}</a>`;
     }
 
     function showMap() {
@@ -397,7 +408,7 @@
       if (mapProducer) {
         const p = mapProducer;
         html += `<h3 style="margin:0 0 4px;color:var(--accent);">${escapeHtml(p.nome)}</h3>
-          <p style="margin:0 0 12px;color:#666;font-size:13px;">${escapeHtml(p.comune || '')}</p>
+          <p style="margin:0 0 12px;color:#666;font-size:13px;">${escapeHtml(p.comune || '')}${siteLink(p.sito, ' · ')}</p>
           <div class="map-wines">` + p.wines.map(i => {
             const v = listaVini[i];
             return `<div class="map-wine" onclick="openModal(${i})">
@@ -584,7 +595,7 @@
       document.getElementById('modal-body').innerHTML = `
         <span class="close-btn" onclick="closeModal('modal-dettaglio')">&times;</span>
         <h2 style="color:#5F5F5F;margin-top:0;">${vino.etichetta} ${vino.annata}</h2>
-        <p><strong>Produttore:</strong> ${vino.produttore} (${[vino.regione, vino.stato].filter(Boolean).join(', ')})</p>
+        <p><strong>Produttore:</strong> ${vino.produttore} (${[vino.regione, vino.stato].filter(Boolean).join(', ')})${siteLink(vino.sito, ' · ')}</p>
         <p><strong>Giacenza:</strong> <span class="badge ${vino.giacenza > 0 ? 'badge-giacenza' : 'badge-esaurito'}">${vino.giacenza} Bottiglie</span></p>
         <hr><p><strong>Vitigno:</strong> ${vino.vitigno} | <strong>Gradazione:</strong> ${vino.gradazione}</p>
         <p><strong>Prezzo Carta:</strong> ${vino.prezzo} | <strong>Coravin:</strong> ${vino.calice}</p>
