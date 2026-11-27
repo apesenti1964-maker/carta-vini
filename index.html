@@ -81,7 +81,7 @@
     .map-wine { padding:10px 4px; border-bottom:1px solid #eee; cursor:pointer; font-size:14px; }
     .map-wine:hover { background:#faf6f6; }
     .map-pin-wrap { background:none; border:0; }
-    .map-pin { position:absolute; transform:translate(-50%,-50%); background:var(--accent); color:#fff; border:2px solid #fff; border-radius:16px; padding:4px 10px; font-size:13px; font-weight:bold; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,.35); cursor:pointer; }
+    .map-pin { position:absolute; transform:translate(-50%,-50%); background:var(--accent); color:#fff; border:2px solid #fff; border-radius:16px; padding:4px 10px; font-size:13px; font-weight:bold; white-space:nowrap; max-width:150px; overflow:hidden; text-overflow:ellipsis; box-shadow:0 2px 6px rgba(0,0,0,.35); cursor:pointer; }
     .map-pin.cantina { background:#fff; color:var(--accent); border-color:var(--accent); }
     .map-pin.sel { background:var(--accent); color:#fff; border-color:#fff; outline:2px solid var(--accent); }
   </style>
@@ -106,7 +106,7 @@
     </div>
   </header>
 
-  <div class="top-bar">
+  <div class="top-bar" id="list-top-bar">
     <label class="top-toggle" id="top-toggle"><input type="checkbox" id="filter-top" onchange="setTopOnly(this.checked)"> ★ Solo Top Wine</label>
   </div>
 
@@ -132,6 +132,10 @@
   </div>
 
   <div id="view-mappa" style="display:none;">
+    <div class="top-bar">
+      <label class="top-toggle" id="mm-top-toggle"><input type="checkbox" id="mm-top" onchange="setMapMode('top',this.checked)"> ★ Solo Top Wine</label>
+      <label class="top-toggle" id="mm-altri-toggle"><input type="checkbox" id="mm-altri" onchange="setMapMode('altri',this.checked)"> Solo altri vini</label>
+    </div>
     <div id="map-breadcrumb" class="map-breadcrumb"></div>
     <div id="map"></div>
     <div id="map-panel" class="map-panel"></div>
@@ -327,12 +331,24 @@
       document.getElementById('view-mappa').style.display = view === 'mappa' ? 'block' : 'none';
       document.querySelectorAll('.nav-tabs .tab-btn').forEach(b => b.classList.remove('active'));
       evt.target.classList.add('active');
+      document.getElementById('list-top-bar').style.display = view === 'mappa' ? 'none' : '';
       if (view === 'mappa') showMap();
     }
 
     /* ===== Mappa: Stato -> Regione -> Cantina ===== */
     let map = null, mapLayer = null, mapItems = [];
     let mapState = null, mapRegion = null, mapProducer = null;
+    // Filtro mappa: 'top' | 'altri' | '' (tutti). I due flag si escludono a vicenda.
+    let mapMode = '';
+    function setMapMode(mode, on) {
+      mapMode = on ? mode : '';
+      document.getElementById('mm-top').checked = mapMode === 'top';
+      document.getElementById('mm-altri').checked = mapMode === 'altri';
+      document.getElementById('mm-top-toggle').classList.toggle('on', mapMode === 'top');
+      document.getElementById('mm-altri-toggle').classList.toggle('on', mapMode === 'altri');
+      mapProducer = null;
+      renderMap();
+    }
 
     function regioneBase(s) {
       return String(s || '').split('(')[0].split(',')[0].split('/')[0].trim() || 'N/D';
@@ -343,7 +359,8 @@
       const byKey = {};
       listaVini.forEach((v, i) => {
         if (!isWineVisible(v)) return;
-        if (topOnly && !isTop(v)) return;
+        if (mapMode === 'top' && !isTop(v)) return;
+        if (mapMode === 'altri' && isTop(v)) return;
         const k = normalizza(v.produttore);
         if (!k) return;
         if (!byKey[k]) {
@@ -374,6 +391,8 @@
           attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map);
         mapLayer = L.layerGroup().addTo(map);
+        // Dopo ogni zoom ricalcola la disposizione dei pin per evitare sovrapposizioni.
+        map.on('zoomend', () => renderMap(true));
       }
       // Il contenitore era nascosto: Leaflet deve ricalcolare le dimensioni.
       setTimeout(() => { map.invalidateSize(); renderMap(); }, 0);
@@ -411,6 +430,25 @@
       })).sort((a, b) => a.label.localeCompare(b.label));
     }
 
+    // Sposta in verticale (in pixel) i pin che si sovrapporrebbero allo zoom corrente.
+    function spreadPins(items, widths) {
+      const H = 28, placed = [], offs = items.map(() => 0);
+      const order = items.map((_, i) => i).sort((a, b) => items[a].lat === items[b].lat ? items[a].lng - items[b].lng : items[b].lat - items[a].lat);
+      order.forEach(i => {
+        const p = map.latLngToContainerPoint([items[i].lat, items[i].lng]);
+        let dy = 0;
+        for (let n = 0; n < 40; n++) {
+          // alterna sotto e sopra: 0, +H, -H, +2H, -2H...
+          dy = n === 0 ? 0 : (n % 2 ? 1 : -1) * Math.ceil(n / 2) * H;
+          const clash = placed.some(q => Math.abs(q.x - p.x) < (q.w + widths[i]) / 2 && Math.abs(q.y - (p.y + dy)) < H);
+          if (!clash) break;
+        }
+        offs[i] = dy;
+        placed.push({ x:p.x, y:p.y + dy, w:widths[i] });
+      });
+      return offs;
+    }
+
     function renderMap(keepView) {
       if (!map) return;
       const all = buildProducers();
@@ -433,23 +471,29 @@
       if (mapRegion) crumbs.push(`<button type="button" class="map-crumb" onclick="mapGo(1)">${escapeHtml(mapRegion)}</button>`);
       document.getElementById('map-breadcrumb').innerHTML = crumbs.join(' › ');
 
+      // La vista va impostata prima di disporre i pin (servono le coordinate a schermo).
+      if ((!keepView || !map._loaded) && mapItems.length) {
+        const pts = mapItems.map(it => [it.lat, it.lng]);
+        if (pts.length === 1) map.setView(pts[0], 11, { animate:false });
+        else map.fitBounds(pts, { padding:[50, 50], maxZoom:12, animate:false });
+      } else if (!map._loaded) {
+        map.setView([46, 11], 4, { animate:false });
+      } else if (!keepView) {
+        map.setView([46, 11], 4, { animate:false });
+      }
+
       mapLayer.clearLayers();
+      // Oro solo nella modalità "Solo Top Wine": niente colori misti.
+      const gold = mapMode === 'top';
+      const labels = mapItems.map(it => escapeHtml(it.label) + (it.kind === 'cantina' ? '' : ` · ${it.count}`));
+      const offs = spreadPins(mapItems, labels.map(l => Math.min(150, l.length * 7.5 + 28)));
       mapItems.forEach((it, i) => {
-        const unit = it.kind === 'cantina' ? '' : ` · ${it.count}`;
         const icon = L.divIcon({
           className:'map-pin-wrap', iconSize:[0, 0],
-          html:`<div class="map-pin ${it.kind}${it.top ? ' top' : ''}${mapProducer && it.producer === mapProducer ? ' sel' : ''}">${it.top ? '★ ' : ''}${escapeHtml(it.label)}${unit}</div>`
+          html:`<div class="map-pin ${it.kind}${gold ? ' top' : ''}${mapProducer && it.producer === mapProducer ? ' sel' : ''}" style="margin-top:${offs[i]}px" title="${escapeHtml(it.label)}">${gold ? '★ ' : ''}${labels[i]}</div>`
         });
-        L.marker([it.lat, it.lng], { icon }).on('click', () => mapPick(i)).addTo(mapLayer);
+        L.marker([it.lat, it.lng], { icon, zIndexOffset:Math.round(offs[i]) }).on('click', () => mapPick(i)).addTo(mapLayer);
       });
-
-      if (!keepView && mapItems.length) {
-        const pts = mapItems.map(it => [it.lat, it.lng]);
-        if (pts.length === 1) map.setView(pts[0], 11);
-        else map.fitBounds(pts, { padding:[50, 50], maxZoom:12 });
-      } else if (!keepView) {
-        map.setView([46, 11], 4);
-      }
 
       renderMapPanel(unplaced);
     }
@@ -471,7 +515,7 @@
       } else {
         const title = !mapState ? 'Scegli uno Stato' : !mapRegion ? 'Scegli una regione' : 'Scegli una cantina';
         html += `<h3 style="margin:0 0 10px;color:var(--accent);">${title}</h3><div class="map-chips">` +
-          mapItems.map((it, i) => `<button type="button" class="map-chip${it.top ? ' top' : ''}" onclick="mapPick(${i})">${it.top ? '★ ' : ''}${escapeHtml(it.label)}${it.kind === 'cantina' ? '' : ' · ' + it.count}</button>`).join('') +
+          mapItems.map((it, i) => `<button type="button" class="map-chip${mapMode === 'top' ? ' top' : ''}" onclick="mapPick(${i})">${mapMode === 'top' ? '★ ' : ''}${escapeHtml(it.label)}${it.kind === 'cantina' ? '' : ' · ' + it.count}</button>`).join('') +
           '</div>';
         if (!mapItems.length) html += '<p style="color:#666;">Nessuna cantina con posizione in questa zona.</p>';
       }
