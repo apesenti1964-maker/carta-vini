@@ -695,9 +695,10 @@
         (!prod || v.produttore === prod) && (!reg || v.regione === reg)
       );
       document.getElementById('counter-vini').innerText = `Vini trovati: ${filtered.length} di ${visibleWines.length}`;
-      // Schede: colore, vitigno, annata, produttore. Lista sintetica: colore, vitigno, produttore, annata.
-      renderGrid(sortWines(filtered, ['colore', 'vitigno', 'annata', 'produttore', 'etichetta']));
-      renderTable(sortWines(filtered, ['colore', 'vitigno', 'produttore', 'annata', 'etichetta']));
+      // Schede e lista sintetica: colore, vitigno, annata, produttore.
+      const ordinati = sortWines(filtered, ['colore', 'vitigno', 'annata', 'produttore', 'etichetta']);
+      renderGrid(ordinati);
+      renderTable(ordinati);
     }
 
     const natCmp = new Intl.Collator('it', { numeric:true, sensitivity:'base' });
