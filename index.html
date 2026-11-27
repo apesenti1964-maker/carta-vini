@@ -108,6 +108,7 @@
 
   <div class="top-bar" id="list-top-bar">
     <label class="top-toggle" id="top-toggle"><input type="checkbox" id="filter-top" onchange="setTopOnly(this.checked)"> ★ Solo Top Wine</label>
+    <button type="button" class="top-toggle" onclick="exportMagazzino()" title="Elenco di tutti i vini per posizione, con giacenza">⬇ Esporta Excel (per posizione)</button>
   </div>
 
   <div id="view-filtri">
@@ -694,8 +695,41 @@
         (!prod || v.produttore === prod) && (!reg || v.regione === reg)
       );
       document.getElementById('counter-vini').innerText = `Vini trovati: ${filtered.length} di ${visibleWines.length}`;
-      renderGrid(filtered);
-      renderTable(filtered);
+      // Schede: colore, vitigno, annata, produttore. Lista sintetica: colore, vitigno, produttore, annata.
+      renderGrid(sortWines(filtered, ['colore', 'vitigno', 'annata', 'produttore', 'etichetta']));
+      renderTable(sortWines(filtered, ['colore', 'vitigno', 'produttore', 'annata', 'etichetta']));
+    }
+
+    const natCmp = new Intl.Collator('it', { numeric:true, sensitivity:'base' });
+    // Ordina per i campi indicati; i valori vuoti vanno in fondo.
+    function sortWines(list, keys) {
+      return [...list].sort((a, b) => {
+        for (const k of keys) {
+          const x = String(a[k] ?? '').trim(), y = String(b[k] ?? '').trim();
+          if (x === y) continue;
+          if (!x) return 1;
+          if (!y) return -1;
+          const c = natCmp.compare(x, y);
+          if (c) return c;
+        }
+        return 0;
+      });
+    }
+
+    // Esporta in Excel (CSV con separatore ";" e BOM UTF-8) tutti i vini per codice posizione, con giacenza.
+    function exportMagazzino() {
+      const rows = sortWines(listaVini, ['posizione', 'produttore', 'etichetta', 'annata']);
+      const head = ['Posizione', 'Produttore', 'Etichetta', 'Annata', 'Colore', 'Vitigno', 'Stato', 'Regione', 'Giacenza', 'Visibile'];
+      const q = s => '"' + String(s ?? '').replace(/"/g, '""') + '"';
+      const lines = [head.map(q).join(';')].concat(rows.map(v =>
+        [v.posizione, v.produttore, v.etichetta, v.annata, v.colore, v.vitigno, v.stato, v.regione,
+         Number.isFinite(v.giacenza) ? v.giacenza : 0, isWineVisible(v) ? 'S' : 'N'].map((x, i) => i === 8 ? x : q(x)).join(';')));
+      const blob = new Blob(['﻿' + lines.join('\r\n')], { type:'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'magazzino-' + new Date().toISOString().slice(0, 10) + '.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     }
 
     function resetFilters() {
